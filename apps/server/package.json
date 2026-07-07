@@ -4,8 +4,8 @@
     "main":  "dist/app.js",
     "scripts":  {
                     "dev":  "ts-node src/app.ts",
-                    "build":  "echo \u0027Build skipped - using ts-node\u0027",
-                    "start":  "ts-node --transpile-only src/app.ts"
+                    "build":  "tsc --project tsconfig.build.json",
+                    "start":  "node dist/app.js"
                 },
     "dependencies":  {
                          "@types/bcryptjs":  "^2.4.6",
