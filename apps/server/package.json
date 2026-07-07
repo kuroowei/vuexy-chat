@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "server",
   "version": "1.0.0",
   "main": "dist/app.js",
@@ -30,6 +30,7 @@
     "@types/node": "^20.5.0",
     "nodemon": "^3.0.1",
     "ts-node": "10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "5.3.3"
   }
 }
+
