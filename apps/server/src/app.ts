@@ -12,23 +12,28 @@ import authRoutes from './routes/auth';
 
 const app = express();
 const httpServer = createServer(app);
+
+const allowedOrigins: string[] = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  process.env.CLIENT_URL || '',
+].filter((origin): origin is string => !!origin);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: allowedOrigins,
     credentials: true,
   },
 });
 
 connectDB();
 
-// Configure Helmet to allow CORS
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-// CORS middleware
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -36,9 +41,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Serve static files with explicit CORS headers
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.header('Access-Control-Allow-Origin', process.env.CLIENT_URL || 'http://localhost:3000');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -50,11 +54,14 @@ app.use((req, res, next) => {
 
 app.use(express.json({ limit: '10mb' }));
 
-// Serve public files with explicit CORS
 app.use('/uploads', express.static('public/uploads'));
 app.use(express.static('public'));
 
 app.use('/api/auth', authRoutes);
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Vuexy Chat API', status: 'running' });
+});
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
