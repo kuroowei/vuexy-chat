@@ -1,4 +1,4 @@
-﻿import { Router, Request, Response } from 'express';
+import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import multer from 'multer';
@@ -7,8 +7,8 @@ import fs from 'fs';
 
 const router = Router();
 
-// Multer configuration
-const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+// Multer configuration - use absolute path relative to dist folder
+const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -43,6 +43,14 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+// Helper to get full avatar URL
+const getAvatarUrl = (avatarPath: string | undefined): string => {
+  if (!avatarPath) return '';
+  if (avatarPath.startsWith('http')) return avatarPath;
+  const baseUrl = process.env.API_BASE_URL || '';
+  return baseUrl + avatarPath;
+};
+
 // Register route
 router.post('/register', async (req: Request, res: Response) => {
   try {
@@ -71,7 +79,7 @@ router.post('/register', async (req: Request, res: Response) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar,
+        avatar: getAvatarUrl(user.avatar),
       },
     });
   } catch (error) {
@@ -119,7 +127,7 @@ router.post('/login', async (req: Request, res: Response) => {
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar,
+        avatar: getAvatarUrl(user.avatar),
       },
     });
   } catch (error) {
@@ -146,7 +154,12 @@ router.get('/verify', async (req: Request, res: Response) => {
       return res.status(401).json({ message: 'User not found' });
     }
 
-    res.json({ user });
+    res.json({ 
+      user: {
+        ...user.toObject(),
+        avatar: getAvatarUrl(user.avatar),
+      }
+    });
   } catch (error) {
     console.error('❌ Verify token error:', error);
     res.status(401).json({ message: 'Invalid token' });
@@ -190,7 +203,7 @@ router.post('/update-profile', upload.single('profileImage') as any, async (req:
         id: user._id,
         name: user.name,
         email: user.email,
-        avatar: user.avatar,
+        avatar: getAvatarUrl(user.avatar),
       },
     });
   } catch (error: any) {

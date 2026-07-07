@@ -10,8 +10,8 @@ const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const router = (0, express_1.Router)();
-// Multer configuration
-const uploadDir = path_1.default.join(process.cwd(), 'public', 'uploads');
+// Multer configuration - use absolute path relative to dist folder
+const uploadDir = path_1.default.join(__dirname, '..', '..', 'public', 'uploads');
 if (!fs_1.default.existsSync(uploadDir)) {
     fs_1.default.mkdirSync(uploadDir, { recursive: true });
 }
@@ -42,6 +42,15 @@ const upload = (0, multer_1.default)({
     fileFilter,
     limits: { fileSize: 5 * 1024 * 1024 },
 });
+// Helper to get full avatar URL
+const getAvatarUrl = (avatarPath) => {
+    if (!avatarPath)
+        return '';
+    if (avatarPath.startsWith('http'))
+        return avatarPath;
+    const baseUrl = process.env.API_BASE_URL || '';
+    return baseUrl + avatarPath;
+};
 // Register route
 router.post('/register', async (req, res) => {
     try {
@@ -62,7 +71,7 @@ router.post('/register', async (req, res) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                avatar: user.avatar,
+                avatar: getAvatarUrl(user.avatar),
             },
         });
     }
@@ -101,7 +110,7 @@ router.post('/login', async (req, res) => {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                avatar: user.avatar,
+                avatar: getAvatarUrl(user.avatar),
             },
         });
     }
@@ -125,7 +134,12 @@ router.get('/verify', async (req, res) => {
         if (!user) {
             return res.status(401).json({ message: 'User not found' });
         }
-        res.json({ user });
+        res.json({
+            user: {
+                ...user.toObject(),
+                avatar: getAvatarUrl(user.avatar),
+            }
+        });
     }
     catch (error) {
         console.error('❌ Verify token error:', error);
@@ -159,7 +173,7 @@ router.post('/update-profile', upload.single('profileImage'), async (req, res) =
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                avatar: user.avatar,
+                avatar: getAvatarUrl(user.avatar),
             },
         });
     }
