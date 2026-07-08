@@ -4,6 +4,14 @@ import ContactCard from './ContactCard';
 import SearchBar from '../UI/SearchBar';
 import type { Contact } from '@/types';
 
+// Helper to generate initials avatar URL
+const getAvatarUrl = (name: string, existingAvatar: string): string => {
+  if (existingAvatar && existingAvatar.trim() !== '') {
+    return existingAvatar;
+  }
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
+};
+
 interface ContactListProps {
   onSelectContact: (id: string) => void;
   activeContact: string | null;
@@ -26,12 +34,12 @@ export default function ContactList({ onSelectContact, activeContact, className 
           },
         });
         const data = await res.json();
-        if (data.users) {
+        if (data.users && data.users.length > 0) {
           const mappedContacts: Contact[] = data.users.map((user: any) => ({
             id: user.id,
             userId: user.userId,
             name: user.name,
-            avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=7c3aed&color=fff`,
+            avatar: getAvatarUrl(user.name, user.avatar),
             status: user.status || 'offline',
             lastMessage: '',
             lastMessageTime: user.lastSeen || new Date().toISOString(),

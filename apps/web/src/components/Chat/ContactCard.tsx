@@ -1,4 +1,5 @@
-﻿import { formatDistanceToNow } from 'date-fns';
+import { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import StatusIndicator from '../UI/StatusIndicator';
 import type { Contact } from '@/types';
 
@@ -9,6 +10,11 @@ interface ContactCardProps {
 }
 
 export default function ContactCard({ contact, isActive, onClick }: ContactCardProps) {
+  const [imgError, setImgError] = useState(false);
+
+  // Generate fallback avatar if image fails to load
+  const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+
   return (
     <button
       onClick={onClick}
@@ -17,7 +23,13 @@ export default function ContactCard({ contact, isActive, onClick }: ContactCardP
       }
     >
       <div className="relative flex-shrink-0">
-        <img src={contact.avatar} alt={contact.name} className="w-10 h-10 rounded-full object-cover" loading="lazy" />
+        <img
+          src={imgError ? fallbackAvatar : contact.avatar}
+          alt={contact.name}
+          className="w-10 h-10 rounded-full object-cover"
+          loading="lazy"
+          onError={() => setImgError(true)}
+        />
         <StatusIndicator status={contact.status} className="absolute bottom-0 right-0" />
       </div>
       <div className="flex-1 min-w-0 text-left">

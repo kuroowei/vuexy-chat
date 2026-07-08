@@ -5,6 +5,14 @@ import ChatInput from './ChatInput';
 import EmptyState from './EmptyState';
 import type { Message, Contact } from '@/types';
 
+// Helper to generate initials avatar URL
+const getAvatarUrl = (name: string, existingAvatar: string): string => {
+  if (existingAvatar && existingAvatar.trim() !== '') {
+    return existingAvatar;
+  }
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
+};
+
 const mockMessages: Record<string, Message[]> = {
   '2': [
     { id: 'm1', conversationId: 'c2', senderId: 'u2', recipientId: 'me', content: 'Hello. How can I help You?', type: 'text', status: 'read', timestamp: new Date(Date.now() - 3600000).toISOString() },
@@ -26,6 +34,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [contact, setContact] = useState<Contact | undefined>();
+  const [headerImgError, setHeaderImgError] = useState(false);
 
   // Fetch real contact data
   useEffect(() => {
@@ -48,7 +57,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             id: data.id,
             userId: data.userId,
             name: data.name,
-            avatar: data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=7c3aed&color=fff`,
+            avatar: getAvatarUrl(data.name, data.avatar),
             status: data.status || 'offline',
             lastMessage: '',
             lastMessageTime: data.lastSeen || new Date().toISOString(),
@@ -110,6 +119,10 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
 
   if (!contactId) return <EmptyState />;
 
+  const headerAvatar = headerImgError
+    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(contact?.name || 'User')}&background=7c3aed&color=fff&size=128&bold=true`
+    : contact?.avatar;
+
   return (
     <div className={'flex flex-col bg-white ' + (className || '')}>
       {/* Header */}
@@ -119,7 +132,12 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           <div className="relative flex-shrink-0">
-            <img src={contact?.avatar} alt={contact?.name} className="w-9 h-9 rounded-full object-cover" />
+            <img
+              src={headerAvatar}
+              alt={contact?.name}
+              className="w-9 h-9 rounded-full object-cover"
+              onError={() => setHeaderImgError(true)}
+            />
             <span className={'absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ' + (contact?.status === 'online' ? 'bg-green-500' : 'bg-gray-400')} />
           </div>
           <div className="min-w-0">
