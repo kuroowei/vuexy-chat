@@ -1,4 +1,4 @@
-﻿import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/Auth/ProtectedRoute';
 import LandingPage from '@/pages/LandingPage';
@@ -12,7 +12,7 @@ import AppLayout from '@/components/Layout/AppLayout';
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -40,7 +40,7 @@ function App() {
           <Route path="/icons" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
         </Routes>
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 

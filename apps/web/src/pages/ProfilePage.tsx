@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Camera, Save, X, AlertCircle, CheckCircle } from 'lucide-react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+const BACKEND_URL = API_BASE_URL.replace('/api', '');
+
 export default function ProfilePage() {
   const { user, updateProfile, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -37,11 +40,11 @@ export default function ProfilePage() {
     
     // If it starts with /, prepend backend URL
     if (avatarPath.startsWith('/')) {
-      return `http://localhost:3002${avatarPath}`;
+      return `${BACKEND_URL}${avatarPath}`;
     }
     
     // Otherwise assume it's a relative path from backend
-    return `http://localhost:3002/${avatarPath}`;
+    return `${BACKEND_URL}/${avatarPath}`;
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
