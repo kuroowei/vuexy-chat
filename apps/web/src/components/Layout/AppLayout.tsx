@@ -28,7 +28,7 @@ export default function AppLayout() {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const isTablet = useMediaQuery('(min-width: 768px)');
 
-  // Sync mobileView with route on desktop
+  // Sync mobileView with route
   useEffect(() => {
     const path = location.pathname;
     if (path === '/contacts') setMobileView('contacts');
@@ -50,30 +50,25 @@ export default function AppLayout() {
     };
   }, [sidebarOpen, isDesktop, isTablet]);
 
-  // Handle selecting a contact
   const handleSelectContact = (id: string) => {
     setActiveContact(id);
     setMobileView('chat');
     setSidebarOpen(false);
   };
 
-  // Handle back from chat
   const handleBack = () => {
     setActiveContact(null);
     setMobileView('chat');
   };
 
-  // Handle starting a call
   const handleStartCall = (contactId: string, type: 'audio' | 'video') => {
     setActiveCall({ contactId, type });
   };
 
-  // Handle ending a call
   const handleEndCall = () => {
     setActiveCall(null);
   };
 
-  // Handle bottom nav
   const handleToggleChat = () => {
     setMobileView('chat');
     setActiveContact(null);
@@ -98,10 +93,9 @@ export default function AppLayout() {
     setMobileView('profile');
   };
 
-  // Determine what to show
   const isMobile = !isDesktop && !isTablet;
 
-  // If there's an active call, show call screen
+  // Active call screen
   if (activeCall) {
     return (
       <div className="h-screen flex bg-gray-900 overflow-hidden">
@@ -114,9 +108,71 @@ export default function AppLayout() {
     );
   }
 
-  const showSidebar = isDesktop || isTablet || sidebarOpen;
-  const showContactList = isDesktop || (isTablet && !activeContact) || (mobileView === 'chat' && !activeContact && isMobile);
-  const showChat = isDesktop || (isTablet && !!activeContact) || (!!activeContact && mobileView === 'chat' && isMobile);
+  // DESKTOP: Show different views based on route
+  if (isDesktop || isTablet) {
+    // On desktop/tablet, show route-based views
+    if (mobileView === 'contacts') {
+      return (
+        <div className="h-screen flex bg-gray-50 overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 h-full">
+            <ContactsPage onStartCall={handleStartCall} onStartChat={handleSelectContact} />
+          </div>
+        </div>
+      );
+    }
+    if (mobileView === 'calls') {
+      return (
+        <div className="h-screen flex bg-gray-50 overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 h-full">
+            <CallsPage />
+          </div>
+        </div>
+      );
+    }
+    if (mobileView === 'settings') {
+      return (
+        <div className="h-screen flex bg-gray-50 overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 h-full">
+            <SettingsHubPage onNavigateToProfile={handleNavigateToProfile} />
+          </div>
+        </div>
+      );
+    }
+    if (mobileView === 'profile') {
+      return (
+        <div className="h-screen flex bg-gray-50 overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 h-full">
+            <ProfileViewPage onBack={handleToggleSettings} />
+          </div>
+        </div>
+      );
+    }
+    // Default: Chat view
+    return (
+      <div className="h-screen flex bg-gray-50 overflow-hidden">
+        <Sidebar />
+        <ContactList 
+          onSelectContact={handleSelectContact}
+          activeContact={activeContact}
+          className="flex-shrink-0 w-80 h-full"
+        />
+        <ChatWindow 
+          contactId={activeContact}
+          onBack={handleBack}
+          className="flex-1 h-full"
+        />
+      </div>
+    );
+  }
+
+  // MOBILE: Show one view at a time
+  const showSidebar = sidebarOpen;
+  const showContactList = mobileView === 'chat' && !activeContact;
+  const showChat = !!activeContact && mobileView === 'chat';
   const showContactsPage = mobileView === 'contacts';
   const showCallsPage = mobileView === 'calls';
   const showSettingsPage = mobileView === 'settings';
@@ -124,29 +180,23 @@ export default function AppLayout() {
 
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden relative">
-      {/* Sidebar - slides in on mobile */}
+      {/* Sidebar */}
       {showSidebar && (
-        <div className={`
-          ${isDesktop || isTablet ? 'relative flex-shrink-0' : 'fixed inset-y-0 left-0 z-[55] w-64'}
-          ${isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}
-          transition-transform duration-300 ease-in-out
-        `}>
-          {isMobile && sidebarOpen && (
-            <div 
-              className="fixed inset-0 bg-black/50 z-[-1] backdrop-blur-mobile" 
-              onClick={() => setSidebarOpen(false)}
-            />
-          )}
+        <div className="fixed inset-y-0 left-0 z-[55] w-64 translate-x-0 transition-transform duration-300 ease-in-out">
+          <div 
+            className="fixed inset-0 bg-black/50 z-[-1] backdrop-blur-mobile" 
+            onClick={() => setSidebarOpen(false)}
+          />
           <Sidebar onClose={() => setSidebarOpen(false)} />
         </div>
       )}
 
-      {/* Contact List (Chat tab) */}
+      {/* Contact List */}
       {showContactList && (
         <ContactList 
           onSelectContact={handleSelectContact}
           activeContact={activeContact}
-          className="flex-shrink-0 w-full md:w-80 h-full pb-mobile-nav"
+          className="flex-shrink-0 w-full h-full pb-mobile-nav"
         />
       )}
 
@@ -162,10 +212,7 @@ export default function AppLayout() {
       {/* Contacts Page */}
       {showContactsPage && (
         <div className="flex-1 h-full pb-mobile-nav">
-          <ContactsPage 
-            onStartCall={handleStartCall}
-            onStartChat={handleSelectContact}
-          />
+          <ContactsPage onStartCall={handleStartCall} onStartChat={handleSelectContact} />
         </div>
       )}
 
@@ -191,17 +238,15 @@ export default function AppLayout() {
       )}
 
       {/* Mobile Navigation */}
-      {isMobile && (
-        <MobileNav
-          onToggleSidebar={() => setSidebarOpen(prev => !prev)}
-          onToggleChat={handleToggleChat}
-          onToggleContacts={handleToggleContacts}
-          onToggleCalls={handleToggleCalls}
-          onToggleSettings={handleToggleSettings}
-          activeView={mobileView === 'profile' ? 'settings' : mobileView}
-          sidebarOpen={sidebarOpen}
-        />
-      )}
+      <MobileNav
+        onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+        onToggleChat={handleToggleChat}
+        onToggleContacts={handleToggleContacts}
+        onToggleCalls={handleToggleCalls}
+        onToggleSettings={handleToggleSettings}
+        activeView={mobileView === 'profile' ? 'settings' : mobileView}
+        sidebarOpen={sidebarOpen}
+      />
     </div>
   );
 }

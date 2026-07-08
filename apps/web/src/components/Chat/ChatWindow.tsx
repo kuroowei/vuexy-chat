@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Phone, Video, Search, MoreVertical } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
@@ -41,19 +41,36 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = (content: string) => {
+  const handleSend = (content: string, type: 'text' | 'image' | 'file' = 'text', fileData?: { name: string; url: string; size?: number }) => {
     const newMessage: Message = {
-      id: 'new-' + Date.now(), conversationId: 'c' + contactId, senderId: 'me', recipientId: 'u' + contactId,
-      content, type: 'text', status: 'sent', timestamp: new Date().toISOString(),
+      id: 'new-' + Date.now(), 
+      conversationId: 'c' + contactId, 
+      senderId: 'me', 
+      recipientId: 'u' + contactId,
+      content, 
+      type, 
+      status: 'sent', 
+      timestamp: new Date().toISOString(),
+      fileName: fileData?.name,
+      fileUrl: fileData?.url,
+      fileSize: fileData?.size,
     };
     setMessages((prev) => [...prev, newMessage]);
+    
+    // Simulate reply
     setTimeout(() => {
       setIsTyping(true);
       setTimeout(() => {
         setIsTyping(false);
         const reply: Message = {
-          id: 'reply-' + Date.now(), conversationId: 'c' + contactId, senderId: 'u' + contactId, recipientId: 'me',
-          content: 'Thanks for your message! I will get back to you shortly.', type: 'text', status: 'sent', timestamp: new Date().toISOString(),
+          id: 'reply-' + Date.now(), 
+          conversationId: 'c' + contactId, 
+          senderId: 'u' + contactId, 
+          recipientId: 'me',
+          content: 'Thanks for your message! I will get back to you shortly.', 
+          type: 'text', 
+          status: 'sent',
+          timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, reply]);
       }, 2000);
@@ -64,6 +81,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
 
   return (
     <div className={'flex flex-col bg-white ' + (className || '')}>
+      {/* Header */}
       <div className="h-16 px-4 flex items-center justify-between border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <button onClick={onBack} className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -86,16 +104,21 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
         </div>
       </div>
 
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         <div className="space-y-1">
-          {messages.map((msg) => <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === 'me'} />)}
+          {messages.map((msg) => (
+            <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === 'me'} />
+          ))}
+          
+          {/* Typing indicator */}
           {isTyping && (
             <div className="flex justify-start mb-4">
               <div className="bg-white px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm border border-gray-100">
                 <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay:'0ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay:'150ms' }} />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay:'300ms' }} />
                 </div>
               </div>
             </div>
@@ -104,6 +127,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
         </div>
       </div>
 
+      {/* Input */}
       <ChatInput onSend={handleSend} />
     </div>
   );

@@ -1,0 +1,63 @@
+﻿import { MessageSquare, Users, Phone, Settings, Menu, X } from 'lucide-react';
+
+interface MobileNavProps {
+  onToggleSidebar: () => void;
+  onToggleChat: () => void;
+  onToggleContacts: () => void;
+  onToggleCalls: () => void;
+  onToggleSettings: () => void;
+  activeView: string;
+  sidebarOpen: boolean;
+}
+
+export default function MobileNav({
+  onToggleSidebar,
+  onToggleChat,
+  onToggleContacts,
+  onToggleCalls,
+  onToggleSettings,
+  activeView,
+  sidebarOpen
+}: MobileNavProps) {
+  const navItems = [
+    { id: 'chat', icon: MessageSquare, label: 'Chat', onClick: onToggleChat },
+    { id: 'contacts', icon: Users, label: 'Contacts', onClick: onToggleContacts },
+    { id: 'calls', icon: Phone, label: 'Calls', onClick: onToggleCalls },
+    { id: 'settings', icon: Settings, label: 'Settings', onClick: onToggleSettings },
+  ];
+
+  return (
+    <>
+      {/* Floating hamburger menu button */}
+      <button
+        onClick={onToggleSidebar}
+        className="fixed top-4 left-4 z-[60] bg-purple-600 text-white p-2.5 rounded-xl shadow-lg hover:bg-purple-700 active:scale-95 transition-all lg:hidden"
+        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+      >
+        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Bottom navigation bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-2 py-2 flex justify-around items-center z-50 safe-area-pb">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = activeView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={item.onClick}
+              className={`flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl transition-all active:scale-95 ${
+                isActive
+                  ? 'text-purple-600 bg-purple-50'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="text-[11px] font-semibold">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+    </>
+  );
+}

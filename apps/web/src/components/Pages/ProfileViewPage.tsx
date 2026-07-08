@@ -1,14 +1,16 @@
 import { 
   ArrowLeft, Camera, MapPin, Link as LinkIcon, 
-  Calendar, Mail, Phone, MessageCircle, Video, MoreHorizontal 
+  Calendar, Mail, Phone, MessageCircle, Video, PhoneCall, MoreHorizontal, Edit3
 } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface ProfileViewPageProps {
   onBack: () => void;
 }
 
 export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'about' | 'media'>('about');
 
   const userProfile = {
@@ -48,8 +50,12 @@ export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
           <ArrowLeft size={20} className="text-gray-600" />
         </button>
         <h1 className="text-xl font-bold text-gray-900">Profile</h1>
-        <button className="ml-auto p-2 hover:bg-gray-100 rounded-full">
-          <MoreHorizontal size={20} className="text-gray-600" />
+        <button 
+          onClick={() => navigate('/profile')}
+          className="ml-auto p-2 hover:bg-gray-100 rounded-full text-purple-600"
+          title="Edit Profile"
+        >
+          <Edit3 size={20} />
         </button>
       </div>
 
@@ -65,9 +71,6 @@ export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
                 alt={userProfile.name}
                 className="w-24 h-24 rounded-full border-4 border-white object-cover"
               />
-              <button className="absolute bottom-0 right-0 p-2 bg-purple-600 text-white rounded-full shadow-lg">
-                <Camera size={14} />
-              </button>
             </div>
           </div>
         </div>
@@ -90,7 +93,7 @@ export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
             Video
           </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
-            <Phone size={16} />
+            <PhoneCall size={16} />
             Call
           </button>
         </div>

@@ -1,0 +1,88 @@
+﻿import { useState } from 'react';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import Sidebar from './Sidebar';
+import ContactList from '../Chat/ContactList';
+import ChatWindow from '../Chat/ChatWindow';
+import MobileNav from './MobileNav';
+
+type MobileView = 'chat' | 'contacts' | 'calls' | 'settings';
+
+export default function AppLayout() {
+  const [activeContact, setActiveContact] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<MobileView>('chat');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const isTablet = useMediaQuery('(min-width: 768px)');
+
+  // Desktop: always show sidebar + contact list + chat
+  // Tablet: show sidebar + either contact list or chat
+  // Mobile: show one view at a time based on mobileView state
+  
+  const showSidebar = isDesktop || isTablet || sidebarOpen;
+  const showContactList = isDesktop || (isTablet && !activeContact) || (mobileView === 'chat' && !isDesktop && !isTablet);
+  const showChat = isDesktop || (isTablet && !!activeContact) || (activeContact && mobileView === 'chat' && !isDesktop && !isTablet);
+
+  const handleSelectContact = (id: string) => {
+    setActiveContact(id);
+    setMobileView('chat');
+    setSidebarOpen(false);
+  };
+
+  const handleBack = () => {
+    setActiveContact(null);
+    setMobileView('chat');
+  };
+
+  return (
+    <div className="h-screen flex bg-gray-50 overflow-hidden relative">
+      {/* Sidebar - slides in on mobile */}
+      {showSidebar && (
+        <div className={`
+          ${isDesktop || isTablet ? 'relative' : 'fixed inset-0 z-[55]'}
+          ${!isDesktop && !isTablet ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}
+          transition-transform duration-300 ease-in-out
+        `}>
+          {!isDesktop && !isTablet && sidebarOpen && (
+            <div 
+              className="absolute inset-0 bg-black/50 z-[-1]" 
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
+          <Sidebar onClose={() => setSidebarOpen(false)} />
+        </div>
+      )}
+
+      {/* Contact List */}
+      {showContactList && (
+        <ContactList 
+          onSelectContact={handleSelectContact}
+          activeContact={activeContact}
+          className="flex-shrink-0 w-full md:w-80 h-full"
+        />
+      )}
+
+      {/* Chat Window */}
+      {showChat && (
+        <ChatWindow 
+          contactId={activeContact}
+          onBack={handleBack}
+          className="flex-1 h-full"
+        />
+      )}
+
+      {/* Mobile Navigation */}
+      {!isDesktop && !isTablet && (
+        <MobileNav
+          onToggleSidebar={() => setSidebarOpen(prev => !prev)}
+          onToggleChat={() => { setMobileView('chat'); setActiveContact(null); }}
+          onToggleContacts={() => { setMobileView('contacts'); setActiveContact(null); }}
+          onToggleCalls={() => setMobileView('calls')}
+          onToggleSettings={() => setMobileView('settings')}
+          activeView={mobileView}
+          sidebarOpen={sidebarOpen}
+        />
+      )}
+    </div>
+  );
+}
