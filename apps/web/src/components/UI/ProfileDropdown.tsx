@@ -3,6 +3,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Settings } from 'lucide-react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+
 export function ProfileDropdown() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -19,10 +21,10 @@ export function ProfileDropdown() {
     }
     // If it starts with /, prepend backend URL
     if (avatarPath.startsWith('/')) {
-      return `http://localhost:3002${avatarPath}`;
+      return `${API_BASE.replace('/api', '')}${avatarPath}`;
     }
     // Otherwise assume it's a relative path from backend
-    return `http://localhost:3002/${avatarPath}`;
+    return `${API_BASE.replace('/api', '')}/${avatarPath}`;
   };
 
   const handleEditProfile = () => {
@@ -54,8 +56,8 @@ export function ProfileDropdown() {
           className="w-8 h-8 rounded-full object-cover"
           onError={(e) => {
             console.error('Sidebar avatar error:', (e.target as HTMLImageElement).src);
-            // Fallback to gravatar if image fails
-            (e.target as HTMLImageElement).src = `https://i.pravatar.cc/150?u=${user?.email}`;
+            // Fallback to initials avatar if image fails
+            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'User')}&background=7c3aed&color=fff&size=128&bold=true`;
           }}
         />
         <span className="text-sm font-medium text-gray-700 hidden sm:inline truncate">

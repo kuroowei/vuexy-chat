@@ -5,6 +5,8 @@ import ChatInput from './ChatInput';
 import EmptyState from './EmptyState';
 import type { Message, Contact } from '@/types';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+
 // Helper to generate initials avatar URL
 const getAvatarUrl = (name: string, existingAvatar: string): string => {
   if (existingAvatar && existingAvatar.trim() !== '') {
@@ -46,7 +48,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     const fetchContact = async () => {
       try {
         const token = localStorage.getItem('authToken');
-        const res = await fetch(`http://localhost:3002/api/users/${contactId}`, {
+        const res = await fetch(`${API_BASE}/users/${contactId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
