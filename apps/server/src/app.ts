@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -9,6 +9,7 @@ dotenv.config();
 
 import { connectDB } from './config/database';
 import authRoutes from './routes/auth';
+import userRoutes from './routes/users';
 
 const app = express();
 const httpServer = createServer(app);
@@ -58,6 +59,7 @@ app.use('/uploads', express.static('public/uploads'));
 app.use(express.static('public'));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });

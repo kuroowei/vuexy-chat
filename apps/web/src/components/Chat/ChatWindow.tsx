@@ -25,12 +25,43 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [contact, setContact] = useState<Contact | undefined>();
 
-  const contact: Contact | undefined = contactId ? {
-    id: contactId, userId: 'u' + contactId, name: contactId === '2' ? 'Harriet McBride' : 'User',
-    avatar: 'https://i.pravatar.cc/150?img=' + contactId, status: 'online', lastMessage: '',
-    lastMessageTime: new Date().toISOString(), unreadCount: 0,
-  } : undefined;
+  // Fetch real contact data
+  useEffect(() => {
+    if (!contactId) {
+      setContact(undefined);
+      return;
+    }
+
+    const fetchContact = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch(`http://localhost:3002/api/users/${contactId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        if (data.id) {
+          setContact({
+            id: data.id,
+            userId: data.userId,
+            name: data.name,
+            avatar: data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.name)}&background=7c3aed&color=fff`,
+            status: data.status || 'offline',
+            lastMessage: '',
+            lastMessageTime: data.lastSeen || new Date().toISOString(),
+            unreadCount: 0,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch contact:', error);
+      }
+    };
+
+    fetchContact();
+  }, [contactId]);
 
   useEffect(() => {
     if (contactId && mockMessages[contactId]) setMessages(mockMessages[contactId]);

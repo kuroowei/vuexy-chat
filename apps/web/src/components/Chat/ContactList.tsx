@@ -1,36 +1,8 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Phone, Video, Search, MoreVertical } from 'lucide-react';
 import ContactCard from './ContactCard';
 import SearchBar from '../UI/SearchBar';
 import type { Contact } from '@/types';
-
-const mockContacts: Contact[] = [
-  {
-    id: '1', userId: 'u1', name: 'Gavin Griffith', avatar: 'https://i.pravatar.cc/150?img=12',
-    status: 'online', lastMessage: 'I will purchase it for sure.',
-    lastMessageTime: new Date(Date.now() - 86400000).toISOString(), unreadCount: 1,
-  },
-  {
-    id: '2', userId: 'u2', name: 'Harriet McBride', avatar: 'https://i.pravatar.cc/150?img=5',
-    status: 'online', lastMessage: 'If it takes long you can mail me at my mail address.',
-    lastMessageTime: new Date(Date.now() - 172800000).toISOString(), unreadCount: 0, isTyping: false,
-  },
-  {
-    id: '3', userId: 'u3', name: 'Danny Conner', avatar: 'https://i.pravatar.cc/150?img=3',
-    status: 'offline', lastMessage: 'Souffle souffle caramels sweet roll. Jelly I...',
-    lastMessageTime: new Date(Date.now() - 259200000).toISOString(), unreadCount: 0,
-  },
-  {
-    id: '4', userId: 'u4', name: 'Janie West', avatar: 'https://i.pravatar.cc/150?img=9',
-    status: 'away', lastMessage: 'Chupa chups candy canes chocolate bar...',
-    lastMessageTime: new Date(Date.now() - 345600000).toISOString(), unreadCount: 0,
-  },
-  {
-    id: '5', userId: 'u5', name: 'Bryan Murray', avatar: 'https://i.pravatar.cc/150?img=13',
-    status: 'online', lastMessage: 'Cake pie jelly jelly beans. Marzipan lemon...',
-    lastMessageTime: new Date(Date.now() - 432000000).toISOString(), unreadCount: 0,
-  },
-];
 
 interface ContactListProps {
   onSelectContact: (id: string) => void;
@@ -40,15 +12,60 @@ interface ContactListProps {
 
 export default function ContactList({ onSelectContact, activeContact, className }: ContactListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch real users from API
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const res = await fetch('http://localhost:3002/api/users', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        const data = await res.json();
+        if (data.users) {
+          const mappedContacts: Contact[] = data.users.map((user: any) => ({
+            id: user.id,
+            userId: user.userId,
+            name: user.name,
+            avatar: user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=7c3aed&color=fff`,
+            status: user.status || 'offline',
+            lastMessage: '',
+            lastMessageTime: user.lastSeen || new Date().toISOString(),
+            unreadCount: 0,
+          }));
+          setContacts(mappedContacts);
+        }
+      } catch (error) {
+        console.error('Failed to fetch users:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
 
   const filteredContacts = useMemo(() => {
-    return mockContacts
+    return contacts
       .filter((c) => {
         const q = searchQuery.toLowerCase();
         return c.name.toLowerCase().includes(q) || c.lastMessage.toLowerCase().includes(q);
       })
       .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
-  }, [searchQuery]);
+  }, [contacts, searchQuery]);
+
+  if (loading) {
+    return (
+      <div className={'bg-white border-r border-gray-200 flex flex-col items-center justify-center ' + (className || '')}>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <p className="mt-2 text-sm text-gray-500">Loading contacts...</p>
+      </div>
+    );
+  }
 
   return (
     <div className={'bg-white border-r border-gray-200 flex flex-col ' + (className || '')}>
@@ -83,7 +100,7 @@ export default function ContactList({ onSelectContact, activeContact, className 
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contacts</h3>
       </div>
       <div className="overflow-y-auto max-h-48">
-        {mockContacts.slice(2).map((contact) => (
+        {contacts.slice(2).map((contact) => (
           <ContactCard key={'contact-' + contact.id} contact={contact} isActive={activeContact === contact.id} onClick={() => onSelectContact(contact.id)} />
         ))}
       </div>
