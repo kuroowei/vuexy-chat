@@ -1,3 +1,49 @@
 ﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ============================================
+   Mobile Navigation Safe Area & Utilities
+   ============================================ */
+
+/* Safe area padding for mobile devices with home indicators (iPhone X+) */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-pb {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+/* Prevent body scroll when sidebar is open on mobile */
+body.sidebar-open {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Mobile bottom nav height offset for main content */
+@media (max-width: 767px) {
+  .pb-mobile-nav {
+    padding-bottom: 4rem;
+  }
+}
+
+/* Smooth transitions for mobile sidebar */
+.mobile-sidebar-enter {
+  transform: translateX(-100%);
+}
+.mobile-sidebar-enter-active {
+  transform: translateX(0);
+  transition: transform 300ms ease-in-out;
+}
+.mobile-sidebar-exit {
+  transform: translateX(0);
+}
+.mobile-sidebar-exit-active {
+  transform: translateX(-100%);
+  transition: transform 300ms ease-in-out;
+}
+
+/* Backdrop blur for mobile overlays */
+.backdrop-blur-mobile {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
