@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import Sidebar from './Sidebar';
 import ContactList from '../Chat/ContactList';
@@ -18,6 +19,7 @@ interface ActiveCall {
 }
 
 export default function AppLayout() {
+  const location = useLocation();
   const [activeContact, setActiveContact] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<MobileView>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +27,16 @@ export default function AppLayout() {
   
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const isTablet = useMediaQuery('(min-width: 768px)');
+
+  // Sync mobileView with route on desktop
+  useEffect(() => {
+    const path = location.pathname;
+    if (path === '/contacts') setMobileView('contacts');
+    else if (path === '/calls') setMobileView('calls');
+    else if (path === '/settings') setMobileView('settings');
+    else if (path === '/profile') setMobileView('profile');
+    else setMobileView('chat');
+  }, [location.pathname]);
 
   // Lock body scroll when sidebar is open on mobile
   useEffect(() => {
@@ -89,8 +101,8 @@ export default function AppLayout() {
   // Determine what to show
   const isMobile = !isDesktop && !isTablet;
 
-  // If there's an active call, show call screen (on mobile)
-  if (activeCall && isMobile) {
+  // If there's an active call, show call screen
+  if (activeCall) {
     return (
       <div className="h-screen flex bg-gray-900 overflow-hidden">
         <ActiveCallPage 
@@ -105,10 +117,10 @@ export default function AppLayout() {
   const showSidebar = isDesktop || isTablet || sidebarOpen;
   const showContactList = isDesktop || (isTablet && !activeContact) || (mobileView === 'chat' && !activeContact && isMobile);
   const showChat = isDesktop || (isTablet && !!activeContact) || (!!activeContact && mobileView === 'chat' && isMobile);
-  const showContactsPage = isMobile && mobileView === 'contacts';
-  const showCallsPage = isMobile && mobileView === 'calls';
-  const showSettingsPage = isMobile && mobileView === 'settings';
-  const showProfilePage = isMobile && mobileView === 'profile';
+  const showContactsPage = mobileView === 'contacts';
+  const showCallsPage = mobileView === 'calls';
+  const showSettingsPage = mobileView === 'settings';
+  const showProfilePage = mobileView === 'profile';
 
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden relative">
@@ -179,7 +191,7 @@ export default function AppLayout() {
       )}
 
       {/* Mobile Navigation */}
-      {isMobile && !activeCall && (
+      {isMobile && (
         <MobileNav
           onToggleSidebar={() => setSidebarOpen(prev => !prev)}
           onToggleChat={handleToggleChat}

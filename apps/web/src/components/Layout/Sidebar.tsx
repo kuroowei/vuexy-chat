@@ -1,4 +1,4 @@
-﻿import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { ProfileDropdown } from '@/components/UI/ProfileDropdown';
 import { 
   LayoutDashboard, 
@@ -18,7 +18,9 @@ import {
   Type,
   Image,
   ChevronRight,
-  LogOut
+  LogOut,
+  Phone,
+  Settings
 } from 'lucide-react';
 
 const mainNavItems = [
@@ -29,6 +31,8 @@ const mainNavItems = [
   { icon: <Truck size={18} />, label: 'Logistics', path: '/logistics' },
   { icon: <Mail size={18} />, label: 'Email', path: '/email' },
   { icon: <MessageSquare size={18} />, label: 'Chat', path: '/chat', badge: 2 },
+  { icon: <Users size={18} />, label: 'Contacts', path: '/contacts' },
+  { icon: <Phone size={18} />, label: 'Calls', path: '/calls' },
   { icon: <Calendar size={18} />, label: 'Calendar', path: '/calendar' },
   { icon: <FileText size={18} />, label: 'Invoice', path: '/invoice' },
   { icon: <Users size={18} />, label: 'User', path: '/user' },
@@ -44,18 +48,16 @@ const uiElements = [
   { icon: <Image size={18} />, label: 'Icons', path: '/icons' },
 ];
 
+const settingsItems = [
+  { icon: <Settings size={18} />, label: 'Settings', path: '/settings' },
+];
+
 export default function Sidebar() {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // Clear authentication token/data from localStorage
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
-
-    // Clear any auth state from your store (if using Zustand)
-    // useAuthStore.getState().logout();
-    
-    // Redirect to login page
     navigate('/');
   };
 
@@ -88,6 +90,23 @@ export default function Sidebar() {
               </span>
             )}
             {item.label === 'Dashboards' && <ChevronRight size={14} />}
+          </NavLink>
+        ))}
+
+        <div className="mt-6 mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          Settings
+        </div>
+        {settingsItems.map((item) => (
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors ' +
+              (isActive ? 'bg-purple-600 text-white' : 'text-gray-600 hover:bg-gray-100')
+            }
+          >
+            <span className="mr-3">{item.icon}</span>
+            <span className="text-sm font-medium">{item.label}</span>
           </NavLink>
         ))}
 
