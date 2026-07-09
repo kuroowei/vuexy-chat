@@ -48,12 +48,16 @@ const getAvatarUrl = (avatarPath: string | undefined): string => {
 };
 
 // Register route WITH avatar upload
+// Use upload.single('avatar') and then access req.body fields
 router.post('/register', upload.single('avatar'), async (req: Request, res: Response) => {
   try {
+    console.log('Register request body:', req.body);
+    console.log('Register request file:', req.file);
+
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({ message: 'Missing required fields', received: req.body });
     }
 
     const existingUser = await User.findOne({ email });

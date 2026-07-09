@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2, Camera, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+
 export default function RegisterForm() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -59,37 +61,30 @@ export default function RegisterForm() {
     if (!agreeTerms) { setError('Please agree to the terms and conditions'); return; }
 
     try {
-      // Use FormData if avatar is selected
       if (avatar) {
+        // Register with avatar using FormData
         const formData = new FormData();
         formData.append('name', name);
         formData.append('email', email);
         formData.append('password', password);
         formData.append('avatar', avatar);
 
-        const token = await registerWithAvatar(formData);
-        if (token) {
-          localStorage.setItem('token', token);
-          window.location.href = '/chat';
-        }
+        const res = await fetch(`${API_URL}/auth/register`, {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Registration failed');
+        
+        localStorage.setItem('token', data.token);
+        window.location.href = '/chat';
       } else {
+        // Register without avatar using JSON
         await register(name, email, password);
       }
     } catch (err: any) {
       setError(err.message || 'Registration failed');
     }
-  };
-
-  // Helper to register with avatar
-  const registerWithAvatar = async (formData: FormData): Promise<string | null> => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
-    const res = await fetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      body: formData,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || 'Registration failed');
-    return data.token;
   };
 
   return (
