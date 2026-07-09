@@ -132,8 +132,8 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// Update profile with avatar
-router.put('/profile', upload.single('avatar'), async (req: Request, res: Response) => {
+// Update profile with avatar (POST to match frontend AuthContext)
+router.post('/update-profile', upload.single('avatar'), async (req: Request, res: Response) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
     if (!token) {
@@ -152,6 +152,50 @@ router.put('/profile', upload.single('avatar'), async (req: Request, res: Respon
 
     if (req.file) {
       // Delete old avatar if exists
+      if (user.avatar && !user.avatar.startsWith('http')) {
+        const oldPath = path.join(uploadDir, path.basename(user.avatar));
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+        }
+      }
+      user.avatar = `/uploads/${req.file.filename}`;
+    }
+
+    await user.save();
+
+    res.json({
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: getAvatarUrl(user.avatar),
+      },
+    });
+  } catch (error) {
+    console.error('? Profile update error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Also keep PUT /profile for backward compatibility
+router.put('/profile', upload.single('avatar'), async (req: Request, res: Response) => {
+  try {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret') as any;
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const { name } = req.body;
+    if (name) user.name = name;
+
+    if (req.file) {
       if (user.avatar && !user.avatar.startsWith('http')) {
         const oldPath = path.join(uploadDir, path.basename(user.avatar));
         if (fs.existsSync(oldPath)) {

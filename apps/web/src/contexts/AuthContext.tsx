@@ -1,4 +1,4 @@
-﻿import { createContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export interface User {
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       try {
-        const res = await fetch(API_URL + '/auth/verify', {
+        const res = await fetch(API_URL + '/auth/me', {
           headers: { Authorization: 'Bearer ' + storedToken },
         });
         if (res.ok) {
@@ -95,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (avatar instanceof File) {
         const formData = new FormData();
         formData.append('name', name || user?.name || '');
-        formData.append('profileImage', avatar);
+        formData.append('avatar', avatar); // Use 'avatar' to match backend
         body = formData;
         // Don't set Content-Type for FormData - browser will do it automatically
       } else {
@@ -116,7 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Update failed');
       
-      // Update user state with new avatar
       console.log('Profile updated successfully:', data.user);
       setUser(data.user);
       localStorage.setItem('token', currentToken!);

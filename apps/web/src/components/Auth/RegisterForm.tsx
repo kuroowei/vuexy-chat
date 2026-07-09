@@ -1,6 +1,6 @@
-ï»¿import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, ArrowRight, CheckCircle2, Camera, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function RegisterForm() {
@@ -12,6 +12,9 @@ export default function RegisterForm() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
+  const [avatar, setAvatar] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { register, isLoading } = useAuth();
 
   const passwordStrength = () => {
@@ -26,19 +29,73 @@ export default function RegisterForm() {
   const strengthLabels = ['Weak', 'Fair', 'Good', 'Strong'];
   const strengthColors = ['bg-red-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500'];
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Avatar must be less than 5MB');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file');
+      return;
+    }
+
+    setError('');
+    setAvatar(file);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAvatarPreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     if (password !== confirmPassword) { setError('Passwords do not match'); return; }
     if (passwordStrength() < 2) { setError('Password is too weak'); return; }
     if (!agreeTerms) { setError('Please agree to the terms and conditions'); return; }
-    try { await register(name, email, password); }
-    catch (err: any) { setError(err.message || 'Registration failed'); }
+
+    try {
+      // Use FormData if avatar is selected
+      if (avatar) {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('email', email);
+        formData.append('password', password);
+        formData.append('avatar', avatar);
+
+        const token = await registerWithAvatar(formData);
+        if (token) {
+          localStorage.setItem('token', token);
+          window.location.href = '/chat';
+        }
+      } else {
+        await register(name, email, password);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    }
+  };
+
+  // Helper to register with avatar
+  const registerWithAvatar = async (formData: FormData): Promise<string | null> => {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+    const res = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Registration failed');
+    return data.token;
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">{error}</div>}
+
       <div className="flex items-center gap-2 mb-6">
         {[1, 2].map((s) => (
           <div key={s} className="flex items-center gap-2 flex-1">
@@ -52,6 +109,43 @@ export default function RegisterForm() {
 
       {step === 1 ? (
         <>
+          {/* Avatar Upload */}
+          <div className="flex flex-col items-center mb-4">
+            <div className="relative">
+              <div className={'w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white ' + (avatarPreview ? '' : 'bg-purple-600')}>
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar preview" className="w-20 h-20 rounded-full object-cover" />
+                ) : (
+                  name ? name.charAt(0).toUpperCase() : <User size={32} />
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 bg-purple-600 hover:bg-purple-700 text-white rounded-full p-2 shadow-lg transition-colors"
+              >
+                <Camera size={14} />
+              </button>
+              {avatar && (
+                <button
+                  type="button"
+                  onClick={() => { setAvatar(null); setAvatarPreview(''); }}
+                  className="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-lg transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
+            <p className="text-xs text-gray-500 mt-2">Click camera to upload avatar (optional)</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
             <div className="relative">
@@ -79,7 +173,7 @@ export default function RegisterForm() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
             <div className="relative">
               <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              <input type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
                 className="w-full pl-10 pr-12 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all" />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -98,7 +192,7 @@ export default function RegisterForm() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password</label>
             <div className="relative">
               <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type={showPassword ? 'text' : 'password'} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              <input type={showPassword ? 'text' : 'password'} required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="••••••••"
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all" />
             </div>
           </div>
