@@ -127,26 +127,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (name: string, email: string, password: string, avatar?: File | null) => {
     setIsLoading(true);
     try {
-      let res: Response;
-      
-      if (avatar) {
-        const formData = new FormData();
-        formData.append('name', name);
-        formData.append('email', email);
-        formData.append('password', password);
-        formData.append('avatar', avatar);
+      let avatarBase64: string | undefined;
 
-        res = await fetch(API_URL + '/auth/register', {
-          method: 'POST',
-          body: formData,
-        });
-      } else {
-        res = await fetch(API_URL + '/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, email, password }),
+      // Convert File to base64 if avatar exists
+      if (avatar) {
+        avatarBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(avatar);
         });
       }
+
+      // Send everything as JSON
+      const res = await fetch(API_URL + '/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          ...(avatarBase64 ? { avatar: avatarBase64 } : {}),
+        }),
+      });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Registration failed');
