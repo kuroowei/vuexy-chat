@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, ReactNode } from 'react';
+﻿import { createContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export interface User {
@@ -16,7 +16,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   updateProfile: (name?: string, avatar?: string | File) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, avatar?: File | null) => Promise<void>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
@@ -91,15 +91,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         Authorization: 'Bearer ' + currentToken,
       };
 
-      // Handle File upload (FormData)
       if (avatar instanceof File) {
         const formData = new FormData();
         formData.append('name', name || user?.name || '');
-        formData.append('avatar', avatar); // Use 'avatar' to match backend
+        formData.append('avatar', avatar);
         body = formData;
-        // Don't set Content-Type for FormData - browser will do it automatically
       } else {
-        // Handle Base64 or JSON
         headers['Content-Type'] = 'application/json';
         body = JSON.stringify({
           name: name || user?.name,
@@ -127,21 +124,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (name: string, email: string, password: string, avatar?: File | null) => {
     setIsLoading(true);
     try {
-      const res = await fetch(API_URL + '/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
+      let res: Response;
+      
+      if (avatar) {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('email', email);
+        formData.append('password', password);
+        formData.append('avatar', avatar);
+
+        res = await fetch(API_URL + '/auth/register', {
+          method: 'POST',
+          body: formData,
+        });
+      } else {
+        res = await fetch(API_URL + '/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password }),
+        });
+      }
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Registration failed');
+      
       localStorage.setItem('token', data.token);
       setToken(data.token);
       setUser(data.user);
       console.log('Registration successful, navigating to /chat');
       navigate('/chat');
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
