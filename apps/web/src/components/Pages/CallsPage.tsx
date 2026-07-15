@@ -1,28 +1,47 @@
-import { Search, Phone, Video, PhoneIncoming, PhoneOutgoing, PhoneMissed, ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
+import { Phone, Video, PhoneIncoming, PhoneOutgoing, PhoneMissed } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { formatDistanceToNow } from 'date-fns';
+import { useCall } from '@/contexts/CallContext';
 
-type CallType = 'audio' | 'video';
-type CallStatus = 'incoming' | 'outgoing' | 'missed';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+const BACKEND_URL = API_BASE_URL.replace('/api', '');
 
-interface Call {
+type CallDirection = 'incoming' | 'outgoing';
+type CallBackendStatus = 'ringing' | 'accepted' | 'declined' | 'missed' | 'ended';
+
+interface CallRecord {
   id: string;
-  name: string;
-  avatar: string;
-  type: CallType;
-  status: CallStatus;
-  time: string;
-  duration: string;
+  contactId: string;
+  contactName: string;
+  contactAvatar: string;
+  direction: CallDirection;
+  type: 'audio' | 'video';
+  status: CallBackendStatus;
+  startedAt: string;
+  acceptedAt?: string;
+  endedAt?: string;
+  duration: number; // seconds
 }
 
-const demoCalls: Call[] = [
-  { id: '1', name: 'Gavin Griffith', avatar: 'https://i.pravatar.cc/150?u=1', type: 'video', status: 'incoming', time: '2 min ago', duration: '5:23' },
-  { id: '2', name: 'Harriet McBride', avatar: 'https://i.pravatar.cc/150?u=2', type: 'audio', status: 'outgoing', time: '15 min ago', duration: '2:45' },
-  { id: '3', name: 'Danny Conner', avatar: 'https://i.pravatar.cc/150?u=3', type: 'video', status: 'missed', time: '1 hour ago', duration: '' },
-  { id: '4', name: 'Janie West', avatar: 'https://i.pravatar.cc/150?u=4', type: 'audio', status: 'incoming', time: '3 hours ago', duration: '12:08' },
-  { id: '5', name: 'Bryan Murray', avatar: 'https://i.pravatar.cc/150?u=5', type: 'video', status: 'outgoing', time: 'Yesterday', duration: '8:15' },
-  { id: '6', name: 'Sarah Johnson', avatar: 'https://i.pravatar.cc/150?u=6', type: 'audio', status: 'missed', time: 'Yesterday', duration: '' },
-  { id: '7', name: 'Mike Chen', avatar: 'https://i.pravatar.cc/150?u=7', type: 'video', status: 'incoming', time: '2 days ago', duration: '3:42' },
-];
+const getAvatarUrl = (name: string, existingAvatar: string): string => {
+  if (existingAvatar && existingAvatar.trim() !== '') {
+    if (existingAvatar.startsWith('http') || existingAvatar.startsWith('data:')) {
+      return existingAvatar;
+    }
+    if (existingAvatar.startsWith('/')) {
+      return `${BACKEND_URL}${existingAvatar}`;
+    }
+    return `${BACKEND_URL}/${existingAvatar}`;
+  }
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
+};
+
+// Collapse the backend's 5-state status + direction into the 3 visual
+// categories the UI actually distinguishes: incoming, outgoing, missed.
+const getDisplayStatus = (call: CallRecord): 'incoming' | 'outgoing' | 'missed' => {
+  if (call.status === 'missed' || call.status === 'declined') return 'missed';
+  return call.direction;
+};
 
 const statusConfig = {
   incoming: { icon: PhoneIncoming, color: 'text-green-600', bg: 'bg-green-50' },
@@ -30,12 +49,46 @@ const statusConfig = {
   missed: { icon: PhoneMissed, color: 'text-red-600', bg: 'bg-red-50' },
 };
 
-export default function CallsPage() {
-  const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
+const formatDuration = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
 
-  const filteredCalls = activeTab === 'all' 
-    ? demoCalls 
-    : demoCalls.filter(c => c.status === 'missed');
+export default function CallsPage() {
+  const { startCall } = useCall();
+  const [activeTab, setActiveTab] = useState<'all' | 'missed'>('all');
+  const [calls, setCalls] = useState<CallRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchCalls = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/calls`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to load call history');
+        setCalls(data.calls || []);
+      } catch (err: any) {
+        console.error('Failed to fetch call history:', err);
+        setError('Could not load call history. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCalls();
+  }, []);
+
+  const filteredCalls =
+    activeTab === 'all' ? calls : calls.filter((c) => getDisplayStatus(c) === 'missed');
+
+  const handleRedial = (call: CallRecord, type: 'audio' | 'video') => {
+    startCall(call.contactId, call.contactName, call.contactAvatar, type);
+  };
 
   return (
     <div className="h-full flex flex-col bg-white">
@@ -43,9 +96,6 @@ export default function CallsPage() {
       <div className="px-4 pt-16 pb-4 border-b border-gray-100 bg-white sticky top-0 z-10">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900">Calls</h1>
-          <button className="p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700">
-            <Phone size={20} />
-          </button>
         </div>
 
         {/* Tabs */}
@@ -69,50 +119,86 @@ export default function CallsPage() {
         </div>
       </div>
 
+      {/* Loading / Error states */}
+      {loading && (
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          <p className="mt-2 text-sm text-gray-500">Loading call history...</p>
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="flex-1 flex items-center justify-center px-8 text-center">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
       {/* Call List */}
-      <div className="flex-1 overflow-y-auto pb-20">
-        {filteredCalls.map((call) => {
-          const StatusIcon = statusConfig[call.status].icon;
-          const statusColor = statusConfig[call.status].color;
-          const statusBg = statusConfig[call.status].bg;
-
-          return (
-            <div
-              key={call.id}
-              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
-            >
-              <div className="relative">
-                <img
-                  src={call.avatar}
-                  alt={call.name}
-                  className="w-12 h-12 rounded-full object-cover"
-                />
-                <div className={`absolute -bottom-1 -right-1 p-1 rounded-full ${statusBg}`}>
-                  <StatusIcon size={12} className={statusColor} />
-                </div>
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-gray-900 truncate">{call.name}</h3>
-                <div className="flex items-center gap-1 text-sm text-gray-500">
-                  {call.type === 'video' ? <Video size={14} /> : <Phone size={14} />}
-                  <span>{call.time}</span>
-                  {call.duration && <span>· {call.duration}</span>}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button className="p-2.5 text-purple-600 hover:bg-purple-50 rounded-full transition-colors">
-                  <Phone size={18} />
-                </button>
-                <button className="p-2.5 text-purple-600 hover:bg-purple-50 rounded-full transition-colors">
-                  <Video size={18} />
-                </button>
-              </div>
+      {!loading && !error && (
+        <div className="flex-1 overflow-y-auto pb-20">
+          {filteredCalls.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-gray-500">
+                {activeTab === 'missed' ? 'No missed calls' : 'No call history yet'}
+              </p>
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            filteredCalls.map((call) => {
+              const displayStatus = getDisplayStatus(call);
+              const StatusIcon = statusConfig[displayStatus].icon;
+              const statusColor = statusConfig[displayStatus].color;
+              const statusBg = statusConfig[displayStatus].bg;
+
+              return (
+                <div
+                  key={call.id}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <div className="relative">
+                    <img
+                      src={getAvatarUrl(call.contactName, call.contactAvatar)}
+                      alt={call.contactName}
+                      className="w-12 h-12 rounded-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(call.contactName)}&background=7c3aed&color=fff&size=128&bold=true`;
+                      }}
+                    />
+                    <div className={`absolute -bottom-1 -right-1 p-1 rounded-full ${statusBg}`}>
+                      <StatusIcon size={12} className={statusColor} />
+                    </div>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">{call.contactName}</h3>
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      {call.type === 'video' ? <Video size={14} /> : <Phone size={14} />}
+                      <span>{formatDistanceToNow(new Date(call.startedAt), { addSuffix: true })}</span>
+                      {call.duration > 0 && <span>Â· {formatDuration(call.duration)}</span>}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleRedial(call, 'audio')}
+                      className="p-2.5 text-purple-600 hover:bg-purple-50 rounded-full transition-colors"
+                      title="Call back"
+                    >
+                      <Phone size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleRedial(call, 'video')}
+                      className="p-2.5 text-purple-600 hover:bg-purple-50 rounded-full transition-colors"
+                      title="Video call"
+                    >
+                      <Video size={18} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
     </div>
   );
 }

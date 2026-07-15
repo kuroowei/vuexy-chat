@@ -5,6 +5,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
+  phone: string;
   avatar: string;
   role: string;
 }
@@ -15,8 +16,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  updateProfile: (name?: string, avatar?: string | File) => Promise<void>;
-  register: (name: string, email: string, password: string, avatar?: File | null) => Promise<void>;
+  updateProfile: (name?: string, avatar?: string | File, phone?: string) => Promise<void>;
+  register: (name: string, email: string, phone: string, password: string, avatar?: File | null) => Promise<void>;
   logout: () => void;
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (token: string, newPassword: string) => Promise<void>;
@@ -81,11 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateProfile = async (name?: string, avatar?: string | File) => {
+  const updateProfile = async (name?: string, avatar?: string | File, phone?: string) => {
     setIsLoading(true);
     try {
       const currentToken = token || localStorage.getItem('token');
-      
+
       let body: any;
       let headers: any = {
         Authorization: 'Bearer ' + currentToken,
@@ -94,6 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (avatar instanceof File) {
         const formData = new FormData();
         formData.append('name', name || user?.name || '');
+        if (phone) {
+          formData.append('phone', phone);
+        }
         formData.append('avatar', avatar);
         body = formData;
       } else {
@@ -101,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body = JSON.stringify({
           name: name || user?.name,
           avatar: avatar,
+          ...(phone ? { phone } : {}),
         });
       }
 
@@ -112,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Update failed');
-      
+
       console.log('Profile updated successfully:', data.user);
       setUser(data.user);
       localStorage.setItem('token', currentToken!);
@@ -124,36 +129,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (name: string, email: string, password: string, avatar?: File | null) => {
+  const register = async (
+    name: string,
+    email: string,
+    phone: string,
+    password: string,
+    avatar?: File | null
+  ) => {
     setIsLoading(true);
     try {
-      let avatarBase64: string | undefined;
-
-      // Convert File to base64 if avatar exists
-      if (avatar) {
-        avatarBase64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(avatar);
-        });
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('email', email);
+      formData.append('phone', phone);
+      formData.append('password', password);
+      if (avatar instanceof File) {
+        formData.append('avatar', avatar);
       }
 
-      // Send everything as JSON
       const res = await fetch(API_URL + '/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          ...(avatarBase64 ? { avatar: avatarBase64 } : {}),
-        }),
+        body: formData,
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Registration failed');
-      
+
       localStorage.setItem('token', data.token);
       setToken(data.token);
       setUser(data.user);

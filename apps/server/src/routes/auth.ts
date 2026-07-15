@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+﻿import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import multer from 'multer';
@@ -47,32 +47,54 @@ const getAvatarUrl = (avatarPath: string | undefined): string => {
   return baseUrl + avatarPath;
 };
 
+// Helper to build a consistent user object for API responses
+const toUserResponse = (user: any) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  avatar: getAvatarUrl(user.avatar),
+});
+
 // Register route WITH avatar upload
-// Use upload.single('avatar') and then access req.body fields
 router.post('/register', upload.single('avatar'), async (req: Request, res: Response) => {
   try {
     console.log('Register request body:', req.body);
     console.log('Register request file:', req.file);
 
-    const { name, email, password } = req.body;
+    const { name, email, phone, password } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name || !email || !phone || !password) {
       return res.status(400).json({ message: 'Missing required fields', received: req.body });
     }
 
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    const existingEmail = await User.findOne({ email });
+    if (existingEmail) {
       return res.status(400).json({ message: 'Email already exists' });
     }
 
     const avatarPath = req.file ? `/uploads/${req.file.filename}` : '';
 
-    const user = await User.create({
-      name,
-      email,
-      password,
-      avatar: avatarPath,
-    });
+    let user;
+    try {
+      user = await User.create({
+        name,
+        email,
+        phone,
+        password,
+        avatar: avatarPath,
+      });
+    } catch (err: any) {
+      // Duplicate phone number (unique index violation)
+      if (err.code === 11000 && err.keyPattern?.phone) {
+        return res.status(400).json({ message: 'This phone number is already registered' });
+      }
+      // Any other validation error (e.g. bad phone format)
+      if (err.name === 'ValidationError') {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
 
     const token = jwt.sign(
       { userId: user._id, email: user.email },
@@ -80,18 +102,13 @@ router.post('/register', upload.single('avatar'), async (req: Request, res: Resp
       { expiresIn: '7d' }
     );
 
-    console.log('? User registered:', email);
+    console.log('User registered:', email);
     res.status(201).json({
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: getAvatarUrl(user.avatar),
-      },
+      user: toUserResponse(user),
     });
   } catch (error) {
-    console.error('? Registration error:', error);
+    console.error('Registration error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -123,15 +140,10 @@ router.post('/login', async (req: Request, res: Response) => {
 
     res.json({
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: getAvatarUrl(user.avatar),
-      },
+      user: toUserResponse(user),
     });
   } catch (error) {
-    console.error('? Login error:', error);
+    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -151,8 +163,9 @@ router.post('/update-profile', upload.single('avatar'), async (req: Request, res
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const { name } = req.body;
+    const { name, phone } = req.body;
     if (name) user.name = name;
+    if (phone) user.phone = phone;
 
     if (req.file) {
       // Delete old avatar if exists
@@ -165,18 +178,23 @@ router.post('/update-profile', upload.single('avatar'), async (req: Request, res
       user.avatar = `/uploads/${req.file.filename}`;
     }
 
-    await user.save();
+    try {
+      await user.save();
+    } catch (err: any) {
+      if (err.code === 11000 && err.keyPattern?.phone) {
+        return res.status(400).json({ message: 'This phone number is already in use by another account' });
+      }
+      if (err.name === 'ValidationError') {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
 
     res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: getAvatarUrl(user.avatar),
-      },
+      user: toUserResponse(user),
     });
   } catch (error) {
-    console.error('? Profile update error:', error);
+    console.error('Profile update error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -196,8 +214,9 @@ router.put('/profile', upload.single('avatar'), async (req: Request, res: Respon
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const { name } = req.body;
+    const { name, phone } = req.body;
     if (name) user.name = name;
+    if (phone) user.phone = phone;
 
     if (req.file) {
       if (user.avatar && !user.avatar.startsWith('http')) {
@@ -209,18 +228,23 @@ router.put('/profile', upload.single('avatar'), async (req: Request, res: Respon
       user.avatar = `/uploads/${req.file.filename}`;
     }
 
-    await user.save();
+    try {
+      await user.save();
+    } catch (err: any) {
+      if (err.code === 11000 && err.keyPattern?.phone) {
+        return res.status(400).json({ message: 'This phone number is already in use by another account' });
+      }
+      if (err.name === 'ValidationError') {
+        return res.status(400).json({ message: err.message });
+      }
+      throw err;
+    }
 
     res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: getAvatarUrl(user.avatar),
-      },
+      user: toUserResponse(user),
     });
   } catch (error) {
-    console.error('? Profile update error:', error);
+    console.error('Profile update error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -241,15 +265,10 @@ router.get('/me', async (req: Request, res: Response) => {
     }
 
     res.json({
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        avatar: getAvatarUrl(user.avatar),
-      },
+      user: toUserResponse(user),
     });
   } catch (error) {
-    console.error('? Get user error:', error);
+    console.error('Get user error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

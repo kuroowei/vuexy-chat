@@ -6,7 +6,6 @@ const router = Router();
 // Helper to check if avatar is valid (not empty, not demo pravatar)
 const getCleanAvatar = (avatar: string | undefined): string => {
   if (!avatar || avatar.trim() === '') return '';
-  // Filter out broken demo image services
   if (avatar.includes('pravatar.cc')) return '';
   if (avatar.includes('i.pravatar.cc')) return '';
   return avatar;
@@ -22,6 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
         userId: user._id.toString(),
         name: user.name,
         email: user.email,
+        phone: user.phone,
         avatar: getCleanAvatar(user.avatar),
         status: user.status,
         lastSeen: user.lastSeen,
@@ -45,6 +45,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       userId: user._id.toString(),
       name: user.name,
       email: user.email,
+      phone: user.phone,
       avatar: getCleanAvatar(user.avatar),
       status: user.status,
       lastSeen: user.lastSeen,

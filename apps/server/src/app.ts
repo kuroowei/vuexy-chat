@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
@@ -10,6 +10,9 @@ dotenv.config();
 import { connectDB } from './config/database';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
+import callRoutes from './routes/calls';
+import { User } from './models/User';
+import { Call } from './models/Call';
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +63,7 @@ app.use(express.static('public'));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/calls', callRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });
@@ -73,7 +77,7 @@ io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth.token;
     if (!token) throw new Error('No token');
-    
+
     const jwt = await import('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret') as any;
     socket.data.userId = decoded.userId;
@@ -83,12 +87,21 @@ io.use(async (socket, next) => {
   }
 });
 
+// Maps a userId to their currently connected socket id.
+// NOTE: this only supports one active connection per user at a time —
+// if the same account is open in two tabs/devices, only the most recent
+// connection will receive call/message events. Fine for now, worth
+// revisiting later if multi-device support becomes a requirement.
 const userSockets = new Map<string, string>();
+
+// Tracks calls currently ringing, so we can mark them "missed" if the
+// callee disconnects (closes tab, loses connection) before answering.
+const ringingCallsByCallee = new Map<string, string>(); // calleeUserId -> callId
 
 io.on('connection', (socket) => {
   const userId = socket.data.userId;
   userSockets.set(userId, socket.id);
-  
+
   console.log('User connected: ' + userId);
 
   socket.on('join_conversation', (conversationId: string) => {
@@ -107,8 +120,163 @@ io.on('connection', (socket) => {
     socket.to('conversation:' + data.conversationId).emit('new_message', data);
   });
 
+  // ---- Call signaling ----
+
+  socket.on('call:invite', async ({ calleeId, type }: { calleeId: string; type: 'audio' | 'video' }) => {
+    try {
+      const caller = await User.findById(userId, 'name avatar');
+      if (!caller) return;
+
+      const call = await Call.create({
+        callerId: userId,
+        calleeId,
+        type,
+        status: 'ringing',
+        startedAt: new Date(),
+      });
+
+      const calleeSocketId = userSockets.get(calleeId);
+      if (!calleeSocketId) {
+        call.status = 'missed';
+        call.endedAt = new Date();
+        await call.save();
+        socket.emit('call:unavailable', { callId: call._id.toString() });
+        return;
+      }
+
+      ringingCallsByCallee.set(calleeId, call._id.toString());
+
+      io.to(calleeSocketId).emit('call:incoming', {
+        callId: call._id.toString(),
+        callerId: userId,
+        callerName: caller.name,
+        callerAvatar: caller.avatar,
+        type,
+      });
+
+      socket.emit('call:ringing', { callId: call._id.toString() });
+    } catch (err) {
+      console.error('call:invite error:', err);
+    }
+  });
+
+  socket.on('call:accept', async ({ callId }: { callId: string }) => {
+    try {
+      const call = await Call.findById(callId);
+      if (!call) return;
+
+      call.status = 'accepted';
+      call.acceptedAt = new Date();
+      await call.save();
+
+      ringingCallsByCallee.delete(call.calleeId.toString());
+
+      const callerSocketId = userSockets.get(call.callerId.toString());
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call:accepted', { callId });
+      }
+    } catch (err) {
+      console.error('call:accept error:', err);
+    }
+  });
+
+  socket.on('call:decline', async ({ callId }: { callId: string }) => {
+    try {
+      const call = await Call.findById(callId);
+      if (!call) return;
+
+      call.status = 'declined';
+      call.endedAt = new Date();
+      await call.save();
+
+      ringingCallsByCallee.delete(call.calleeId.toString());
+
+      const callerSocketId = userSockets.get(call.callerId.toString());
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call:declined', { callId });
+      }
+    } catch (err) {
+      console.error('call:decline error:', err);
+    }
+  });
+
+  socket.on('call:end', async ({ callId }: { callId: string }) => {
+    try {
+      const call = await Call.findById(callId);
+      if (!call) return;
+
+      const wasRinging = call.status === 'ringing';
+      call.endedAt = new Date();
+
+      if (wasRinging) {
+        call.status = 'missed';
+      } else if (call.status === 'accepted') {
+        call.status = 'ended';
+        if (call.acceptedAt) {
+          call.duration = Math.round((call.endedAt.getTime() - call.acceptedAt.getTime()) / 1000);
+        }
+      }
+
+      await call.save();
+      ringingCallsByCallee.delete(call.calleeId.toString());
+
+      const otherPartyId =
+        call.callerId.toString() === userId ? call.calleeId.toString() : call.callerId.toString();
+      const otherSocketId = userSockets.get(otherPartyId);
+      if (otherSocketId) {
+        io.to(otherSocketId).emit('call:ended', { callId });
+      }
+    } catch (err) {
+      console.error('call:end error:', err);
+    }
+  });
+
+  // ---- WebRTC signaling relay (server never touches the media itself) ----
+
+  socket.on('webrtc:offer', ({ targetUserId, offer }: any) => {
+    const targetSocketId = userSockets.get(targetUserId);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('webrtc:offer', { fromUserId: userId, offer });
+    }
+  });
+
+  socket.on('webrtc:answer', ({ targetUserId, answer }: any) => {
+    const targetSocketId = userSockets.get(targetUserId);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('webrtc:answer', { fromUserId: userId, answer });
+    }
+  });
+
+  socket.on('webrtc:ice-candidate', ({ targetUserId, candidate }: any) => {
+    const targetSocketId = userSockets.get(targetUserId);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('webrtc:ice-candidate', { fromUserId: userId, candidate });
+    }
+  });
+
   socket.on('disconnect', async () => {
     userSockets.delete(userId);
+
+    const pendingCallId = ringingCallsByCallee.get(userId);
+    if (pendingCallId) {
+      try {
+        const call = await Call.findById(pendingCallId);
+        if (call && call.status === 'ringing') {
+          call.status = 'missed';
+          call.endedAt = new Date();
+          await call.save();
+
+          const callerSocketId = userSockets.get(call.callerId.toString());
+          if (callerSocketId) {
+            io.to(callerSocketId).emit('call:ended', { callId: pendingCallId });
+          }
+        }
+      } catch (err) {
+        console.error('Error marking call missed on disconnect:', err);
+      }
+      ringingCallsByCallee.delete(userId);
+    }
+
     console.log('User disconnected: ' + userId);
   });
 });

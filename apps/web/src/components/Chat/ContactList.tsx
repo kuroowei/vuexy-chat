@@ -4,10 +4,22 @@ import ContactCard from './ContactCard';
 import SearchBar from '../UI/SearchBar';
 import type { Contact } from '@/types';
 
-// Helper to generate initials avatar URL
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+const BACKEND_URL = API_BASE_URL.replace('/api', '');
+
+// Helper to generate initials avatar URL, and correctly resolve real avatar paths
 const getAvatarUrl = (name: string, existingAvatar: string): string => {
   if (existingAvatar && existingAvatar.trim() !== '') {
-    return existingAvatar;
+    // Already a full URL or a data URL — use as-is
+    if (existingAvatar.startsWith('http') || existingAvatar.startsWith('data:')) {
+      return existingAvatar;
+    }
+    // Relative path from backend (e.g. "/uploads/avatar-123.jpg") — prepend backend origin
+    if (existingAvatar.startsWith('/')) {
+      return `${BACKEND_URL}${existingAvatar}`;
+    }
+    // Bare relative path without leading slash
+    return `${BACKEND_URL}/${existingAvatar}`;
   }
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
 };
@@ -27,8 +39,9 @@ export default function ContactList({ onSelectContact, activeContact, className 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = localStorage.getItem('authToken');
-        const res = await fetch('http://localhost:3002/api/users', {
+        // IMPORTANT: must match the key AuthContext.tsx uses ('token'), not 'authToken'
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Camera, Save, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Camera, Save, X, AlertCircle, CheckCircle, Phone } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 const BACKEND_URL = API_BASE_URL.replace('/api', '');
@@ -10,7 +10,7 @@ export default function ProfilePage() {
   const { user, updateProfile, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({ name: '', email: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
   const [uploading, setUploading] = useState(false);
@@ -19,45 +19,33 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      setFormData({ name: user.name, email: user.email });
+      setFormData({ name: user.name, email: user.email, phone: user.phone || '' });
       setImagePreview(user.avatar);
     }
   }, [user]);
 
-  // Helper function to get full image URL
   const getImageUrl = (avatarPath: string): string => {
     if (!avatarPath) return '';
-    
-    // If it's a data URL (preview), return as-is
-    if (avatarPath.startsWith('data:')) {
-      return avatarPath;
-    }
-    
-    // If it already starts with http, return as-is
-    if (avatarPath.startsWith('http')) {
-      return avatarPath;
-    }
-    
-    // If it starts with /, prepend backend URL
-    if (avatarPath.startsWith('/')) {
-      return `${BACKEND_URL}${avatarPath}`;
-    }
-    
-    // Otherwise assume it's a relative path from backend
+    if (avatarPath.startsWith('data:')) return avatarPath;
+    if (avatarPath.startsWith('http')) return avatarPath;
+    if (avatarPath.startsWith('/')) return `${BACKEND_URL}${avatarPath}`;
     return `${BACKEND_URL}/${avatarPath}`;
+  };
+
+  const isValidPhone = (value: string) => {
+    const cleaned = value.replace(/[\s\-()]/g, '');
+    return /^(\+?234|0)?\d{10}$/.test(cleaned);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       setError('File size must be less than 5MB');
       return;
     }
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please select a valid image file');
       return;
@@ -66,7 +54,6 @@ export default function ProfilePage() {
     setError('');
     setProfileImage(file);
 
-    // Create preview
     const reader = new FileReader();
     reader.onload = (event) => {
       setImagePreview(event.target?.result as string);
@@ -87,28 +74,29 @@ export default function ProfilePage() {
     setUploading(true);
 
     try {
-      // Validate inputs
       if (!formData.name.trim()) {
         throw new Error('Name is required');
       }
 
-      // Use the updateProfile function from AuthContext
-      // It handles both File and Base64 formats
+      if (!formData.phone.trim()) {
+        throw new Error('Phone number is required');
+      }
+
+      if (!isValidPhone(formData.phone)) {
+        throw new Error('Please enter a valid Nigerian phone number');
+      }
+
       if (profileImage) {
-        // Upload file using the updateProfile function
-        await updateProfile(formData.name, profileImage);
+        await updateProfile(formData.name, profileImage, formData.phone);
       } else {
-        // Just update name
-        await updateProfile(formData.name);
+        await updateProfile(formData.name, undefined, formData.phone);
       }
 
       setSuccess('Profile updated successfully! 🎉');
       setProfileImage(null);
 
-      // Show success message for 2 seconds, then reload to show updated image
       setTimeout(() => {
         setSuccess('');
-        // Reload to ensure image displays with new URL
         window.location.reload();
       }, 2000);
     } catch (err: any) {
@@ -131,19 +119,16 @@ export default function ProfilePage() {
     );
   }
 
-  // Get proper image URL
   const displayImageUrl = getImageUrl(imagePreview || user.avatar);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900">Profile Settings</h1>
           <p className="text-gray-600 mt-2">Manage your account information and profile picture</p>
         </div>
 
-        {/* Alert Messages */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
@@ -164,14 +149,11 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Form Card */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
           <form onSubmit={handleSubmit} className="p-8">
-            {/* Profile Picture Section */}
             <div className="mb-8">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h2>
               <div className="flex flex-col sm:flex-row gap-8 items-start">
-                {/* Avatar Preview */}
                 <div className="relative">
                   <img
                     src={displayImageUrl}
@@ -179,8 +161,7 @@ export default function ProfilePage() {
                     className="w-32 h-32 rounded-full object-cover border-4 border-purple-200"
                     onError={(e) => {
                       console.error('Image load error:', (e.target as HTMLImageElement).src);
-                      // Fallback to gravatar if image fails
-                      (e.target as HTMLImageElement).src = `https://i.pravatar.cc/150?u=${user.email}`;
+                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=7c3aed&color=fff&size=128&bold=true`;
                     }}
                   />
                   <label
@@ -192,7 +173,6 @@ export default function ProfilePage() {
                   </label>
                 </div>
 
-                {/* Upload Info */}
                 <div className="flex-1">
                   <input
                     id="image-input"
@@ -221,11 +201,9 @@ export default function ProfilePage() {
 
             <hr className="my-8" />
 
-            {/* Personal Information Section */}
             <div className="mb-8">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
 
-              {/* Full Name */}
               <div className="mb-6">
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                   Full Name
@@ -243,7 +221,29 @@ export default function ProfilePage() {
                 />
               </div>
 
-              {/* Email */}
+              <div className="mb-6">
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="phone"
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    disabled={uploading || isLoading}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors disabled:bg-gray-50 disabled:cursor-not-allowed"
+                    placeholder="08031234567"
+                    required
+                  />
+                </div>
+                <p className="text-gray-500 text-xs mt-2">
+                  Update this if you've changed your phone number or SIM.
+                </p>
+              </div>
+
               <div className="mb-6">
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email Address
@@ -260,7 +260,6 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
               <button
                 type="button"

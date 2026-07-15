@@ -4,6 +4,7 @@ export interface IUser extends Document {
   _id: Types.ObjectId;
   name: string;
   email: string;
+  phone: string;
   password: string;
   avatar: string;
   status: 'online' | 'offline' | 'away' | 'busy';
@@ -36,4 +37,17 @@ export interface IConversation extends Document {
   groupName?: string;
   groupAvatar?: string;
   createdAt: Date;
+}
+
+export interface ICall extends Document {
+  callerId: Types.ObjectId;
+  calleeId: Types.ObjectId;
+  type: 'audio' | 'video';
+  status: 'ringing' | 'accepted' | 'declined' | 'missed' | 'ended';
+  startedAt: Date;
+  acceptedAt?: Date;
+  endedAt?: Date;
+  duration: number;
+  createdAt: Date;
+  updatedAt: Date;
 }
