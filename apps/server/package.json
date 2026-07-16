@@ -4,7 +4,7 @@
   "main": "dist/app.js",
   "scripts": {
     "dev": "ts-node src/app.ts",
-    "build": "echo 'Build skipped - dist/ already compiled'",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/app.js"
   },
   "dependencies": {
