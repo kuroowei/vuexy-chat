@@ -1,9 +1,17 @@
 ﻿import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-export interface AuthRequest extends Request {
-  user?: { userId: string; email: string };
+declare global {
+  namespace Express {
+    interface Request {
+      user?: { userId: string; email: string };
+    }
+  }
 }
+
+// Kept as an alias so existing imports of `AuthRequest` elsewhere
+// (e.g. routes/calls.ts) don't need to change.
+export type AuthRequest = Request;
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
