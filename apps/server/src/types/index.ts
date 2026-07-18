@@ -12,6 +12,8 @@ export interface IUser extends Document {
   role: string;
   resetPasswordToken?: string;
   resetPasswordExpiry?: Date;
+  blockedUsers: Types.ObjectId[];
+  hiddenContacts: Types.ObjectId[];
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

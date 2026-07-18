@@ -1,4 +1,4 @@
-import { Search, Phone, Video, MoreVertical, MessageCircle } from 'lucide-react';
+import { Search, Phone, Video, MoreVertical, MessageCircle, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -52,25 +52,27 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [profileContact, setProfileContact] = useState<Contact | null>(null);
+  const [actionError, setActionError] = useState('');
+
+  const fetchContacts = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to load contacts');
+      setContacts(data.users || []);
+    } catch (err: any) {
+      console.error('Failed to fetch contacts:', err);
+      setError('Could not load contacts. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to load contacts');
-        setContacts(data.users || []);
-      } catch (err: any) {
-        console.error('Failed to fetch contacts:', err);
-        setError('Could not load contacts. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchContacts();
   }, []);
 
@@ -122,8 +124,62 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
     setShowOptions(showOptions === contactId ? null : contactId);
   };
 
+  const handleViewProfile = (contact: Contact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowOptions(null);
+    setProfileContact(contact);
+  };
+
+  const handleBlockContact = async (contact: Contact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowOptions(null);
+    setActionError('');
+
+    if (!window.confirm(`Block ${contact.name}? They will be removed from your contacts.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/${contact.id}/block`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to block contact');
+      setContacts(prev => prev.filter(c => c.id !== contact.id));
+    } catch (err: any) {
+      console.error('Block contact error:', err);
+      setActionError(err.message || 'Failed to block contact');
+    }
+  };
+
+  const handleDeleteContact = async (contact: Contact, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowOptions(null);
+    setActionError('');
+
+    if (!window.confirm(`Remove ${contact.name} from your contacts?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users/${contact.id}/hide`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to remove contact');
+      setContacts(prev => prev.filter(c => c.id !== contact.id));
+    } catch (err: any) {
+      console.error('Delete contact error:', err);
+      setActionError(err.message || 'Failed to remove contact');
+    }
+  };
+
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white relative">
       <div className="px-4 pt-16 pb-4 border-b border-gray-100 bg-white sticky top-0 z-10">
         <h1 className="text-2xl font-bold text-gray-900 mb-4">Contacts</h1>
 
@@ -157,6 +213,12 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
           </button>
         </div>
       </div>
+
+      {actionError && (
+        <div className="mx-4 mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+          {actionError}
+        </div>
+      )}
 
       {loading && (
         <div className="flex-1 flex flex-col items-center justify-center">
@@ -242,13 +304,22 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
 
                     {showOptions === contact.id && (
                       <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700">
+                        <button
+                          onClick={(e) => handleViewProfile(contact, e)}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+                        >
                           View Profile
                         </button>
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700">
+                        <button
+                          onClick={(e) => handleBlockContact(contact, e)}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+                        >
                           Block Contact
                         </button>
-                        <button className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-red-600">
+                        <button
+                          onClick={(e) => handleDeleteContact(contact, e)}
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-red-600"
+                        >
                           Delete Contact
                         </button>
                       </div>
@@ -258,6 +329,63 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* View Profile modal */}
+      {profileContact && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center px-4"
+          onClick={() => setProfileContact(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setProfileContact(null)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-gray-100 rounded-full text-gray-500"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <img
+                src={getAvatarUrl(profileContact.name, profileContact.avatar)}
+                alt={profileContact.name}
+                className="w-24 h-24 rounded-full object-cover mb-4"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profileContact.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+                }}
+              />
+              <h2 className="text-xl font-bold text-gray-900">{profileContact.name}</h2>
+              <p className="text-sm text-gray-500 mt-1">{profileContact.phone || 'No phone number'}</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {getStatusLabel(profileContact.status, profileContact.lastSeen)}
+              </p>
+
+              <div className="flex gap-3 mt-6 w-full">
+                <button
+                  onClick={(e) => {
+                    handleAudioCall(profileContact, e);
+                    setProfileContact(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-50 text-green-600 rounded-xl font-medium hover:bg-green-100 transition-colors"
+                >
+                  <Phone size={18} /> Call
+                </button>
+                <button
+                  onClick={(e) => {
+                    handleMessage(profileContact.id, e);
+                    setProfileContact(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-purple-50 text-purple-600 rounded-xl font-medium hover:bg-purple-100 transition-colors"
+                >
+                  <MessageCircle size={18} /> Message
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -2,8 +2,6 @@
 import bcrypt from 'bcryptjs';
 import type { IUser } from '../types';
 
-// Normalize a Nigerian phone number to E.164 format (+234XXXXXXXXXX).
-// Accepts common input styles: 08031234567, 8031234567, 2348031234567, +2348031234567
 function normalizePhoneNumber(phone: string): string {
   let cleaned = phone.replace(/[\s\-()]/g, '');
 
@@ -40,14 +38,12 @@ const UserSchema = new Schema<IUser>(
     role: { type: String, default: 'user' },
     resetPasswordToken: { type: String },
     resetPasswordExpiry: { type: Date },
+    blockedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    hiddenContacts: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );
 
-// IMPORTANT: this must be pre('validate'), not pre('save') — Mongoose runs
-// field validators (like the `match` pattern above) BEFORE pre('save') hooks,
-// so normalizing here ensures the phone is already in +234... format by the
-// time the match validator checks it.
 UserSchema.pre('validate', function (next) {
   if (this.isModified('phone') && this.phone) {
     this.phone = normalizePhoneNumber(this.phone);
