@@ -45,7 +45,7 @@ export default function CallManager() {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
     }
-  }, [localStream]);
+  }, [localStream, callStatus]);
 
   useEffect(() => {
     if (callType === 'video' && remoteVideoRef.current && remoteStream) {
@@ -54,7 +54,7 @@ export default function CallManager() {
     if (callType === 'audio' && remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
     }
-  }, [remoteStream, callType]);
+  }, [remoteStream, callType, callStatus]);
 
   if (callStatus === 'idle' || callStatus === 'ended') return null;
 
