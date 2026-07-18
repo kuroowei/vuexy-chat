@@ -1,56 +1,55 @@
-import { 
-  ArrowLeft, Camera, MapPin, Link as LinkIcon, 
-  Calendar, Mail, Phone, MessageCircle, Video, PhoneCall, MoreHorizontal, Edit3
+import {
+  ArrowLeft, Mail, Phone, Edit3, Circle
 } from 'lucide-react';
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+const BACKEND_URL = API_BASE_URL.replace('/api', '');
 
 interface ProfileViewPageProps {
   onBack: () => void;
 }
 
+const getAvatarUrl = (name: string, existingAvatar: string): string => {
+  if (existingAvatar && existingAvatar.trim() !== '') {
+    if (existingAvatar.startsWith('http') || existingAvatar.startsWith('data:')) {
+      return existingAvatar;
+    }
+    if (existingAvatar.startsWith('/')) {
+      return `${BACKEND_URL}${existingAvatar}`;
+    }
+    return `${BACKEND_URL}/${existingAvatar}`;
+  }
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
+};
+
 export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'about' | 'media'>('about');
+  const { user } = useAuth();
 
-  const userProfile = {
-    name: 'Alex Johnson',
-    username: '@alexjohnson',
-    avatar: 'https://i.pravatar.cc/150?u=99',
-    bio: 'Full-stack developer | Coffee lover | Building amazing things',
-    location: 'San Francisco, CA',
-    website: 'alexjohnson.dev',
-    joined: 'March 2023',
-    email: 'alex@example.com',
-    phone: '+1 234 567 8900',
-    stats: {
-      chats: 142,
-      contacts: 89,
-      calls: 56,
-    },
-  };
+  if (!user) {
+    return (
+      <div className="h-full flex items-center justify-center bg-gray-50">
+        <p className="text-gray-500">Loading profile...</p>
+      </div>
+    );
+  }
 
-  const mediaItems = [
-    'https://picsum.photos/200/200?random=1',
-    'https://picsum.photos/200/200?random=2',
-    'https://picsum.photos/200/200?random=3',
-    'https://picsum.photos/200/200?random=4',
-    'https://picsum.photos/200/200?random=5',
-    'https://picsum.photos/200/200?random=6',
-  ];
+  const avatarUrl = getAvatarUrl(user.name, user.avatar);
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
       <div className="px-4 pt-16 pb-4 bg-white border-b border-gray-100 sticky top-0 z-10 flex items-center gap-3">
-        <button 
+        <button
           onClick={onBack}
           className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors"
         >
           <ArrowLeft size={20} className="text-gray-600" />
         </button>
         <h1 className="text-xl font-bold text-gray-900">Profile</h1>
-        <button 
+        <button
           onClick={() => navigate('/profile')}
           className="ml-auto p-2 hover:bg-gray-100 rounded-full text-purple-600"
           title="Edit Profile"
@@ -65,105 +64,42 @@ export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
         <div className="relative">
           <div className="h-32 bg-gradient-to-r from-purple-500 to-pink-500" />
           <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
-            <div className="relative">
-              <img
-                src={userProfile.avatar}
-                alt={userProfile.name}
-                className="w-24 h-24 rounded-full border-4 border-white object-cover"
-              />
-            </div>
+            <img
+              src={avatarUrl}
+              alt={user.name}
+              className="w-24 h-24 rounded-full border-4 border-white object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+              }}
+            />
           </div>
         </div>
 
-        {/* Name & Bio */}
+        {/* Name */}
         <div className="mt-16 px-4 text-center">
-          <h2 className="text-xl font-bold text-gray-900">{userProfile.name}</h2>
-          <p className="text-sm text-gray-500">{userProfile.username}</p>
-          <p className="mt-2 text-sm text-gray-600">{userProfile.bio}</p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-center gap-3 mt-4 px-4">
-          <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors">
-            <MessageCircle size={16} />
-            Message
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
-            <Video size={16} />
-            Video
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors">
-            <PhoneCall size={16} />
-            Call
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="mx-4 mt-6 p-4 bg-white rounded-2xl shadow-sm">
-          <div className="flex justify-around">
-            <div className="text-center">
-              <p className="text-xl font-bold text-gray-900">{userProfile.stats.chats}</p>
-              <p className="text-xs text-gray-500">Chats</p>
-            </div>
-            <div className="w-px bg-gray-200" />
-            <div className="text-center">
-              <p className="text-xl font-bold text-gray-900">{userProfile.stats.contacts}</p>
-              <p className="text-xs text-gray-500">Contacts</p>
-            </div>
-            <div className="w-px bg-gray-200" />
-            <div className="text-center">
-              <p className="text-xl font-bold text-gray-900">{userProfile.stats.calls}</p>
-              <p className="text-xs text-gray-500">Calls</p>
-            </div>
+          <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
+          <div className="flex items-center justify-center gap-1.5 mt-1">
+            <Circle size={8} className="fill-green-500 text-green-500" />
+            <p className="text-sm text-gray-500">Your account</p>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="mx-4 mt-4 bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-100">
-            <button
-              onClick={() => setActiveTab('about')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'about' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-500'
-              }`}
-            >
-              About
-            </button>
-            <button
-              onClick={() => setActiveTab('media')}
-              className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === 'media' 
-                  ? 'text-purple-600 border-b-2 border-purple-600' 
-                  : 'text-gray-500'
-              }`}
-            >
-              Media
-            </button>
-          </div>
+        {/* Edit Profile call-to-action */}
+        <div className="flex justify-center mt-4 px-4">
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors"
+          >
+            <Edit3 size={16} />
+            Edit Profile
+          </button>
+        </div>
 
-          <div className="p-4">
-            {activeTab === 'about' ? (
-              <div className="space-y-3">
-                <InfoCard icon={MapPin} label="Location" value={userProfile.location} />
-                <InfoCard icon={LinkIcon} label="Website" value={userProfile.website} />
-                <InfoCard icon={Calendar} label="Joined" value={userProfile.joined} />
-                <InfoCard icon={Mail} label="Email" value={userProfile.email} />
-                <InfoCard icon={Phone} label="Phone" value={userProfile.phone} />
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {mediaItems.map((src, i) => (
-                  <img 
-                    key={i} 
-                    src={src} 
-                    alt={`Media ${i + 1}`}
-                    className="w-full aspect-square object-cover rounded-lg"
-                  />
-                ))}
-              </div>
-            )}
+        {/* Contact info */}
+        <div className="mx-4 mt-6 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="p-4 space-y-3">
+            <InfoCard icon={Mail} label="Email" value={user.email} />
+            <InfoCard icon={Phone} label="Phone" value={user.phone || 'Not set'} />
           </div>
         </div>
       </div>
