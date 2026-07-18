@@ -10,13 +10,29 @@ import {
 import { useSocket } from '@/contexts/SocketContext';
 import { useAuth } from '@/hooks/useAuth';
 
-// Free public STUN servers — enough for same-network/testing calls.
-// A TURN server should be added here before relying on this in production,
-// since strict NATs (mobile data, some corporate networks) need a relay.
+// Free public STUN + TURN servers from the Open Relay Project.
+// Good for testing/demo use; for real production traffic with guaranteed
+// uptime, switch to a paid provider (Twilio, Metered.ca, Xirsys) using
+// your own credentials instead.
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+      username: 'openrelayproject',
+      credential: 'openrelayproject',
+    },
   ],
 };
 
