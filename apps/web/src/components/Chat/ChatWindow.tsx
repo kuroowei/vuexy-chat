@@ -15,16 +15,6 @@ const getAvatarUrl = (name: string, existingAvatar: string): string => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
 };
 
-const mockMessages: Record<string, Message[]> = {
-  '2': [
-    { id: 'm1', conversationId: 'c2', senderId: 'u2', recipientId: 'me', content: 'Hello. How can I help You?', type: 'text', status: 'read', timestamp: new Date(Date.now() - 3600000).toISOString() },
-    { id: 'm2', conversationId: 'c2', senderId: 'me', recipientId: 'u2', content: 'Can I get details of my last transaction I made last month?', type: 'text', status: 'read', timestamp: new Date(Date.now() - 3300000).toISOString() },
-    { id: 'm3', conversationId: 'c2', senderId: 'u2', recipientId: 'me', content: 'We need to check if we can provide you such information.', type: 'text', status: 'read', timestamp: new Date(Date.now() - 3000000).toISOString() },
-    { id: 'm4', conversationId: 'c2', senderId: 'u2', recipientId: 'me', content: 'I will inform you as I get update on this.', type: 'text', status: 'read', timestamp: new Date(Date.now() - 3000000).toISOString() },
-    { id: 'm5', conversationId: 'c2', senderId: 'me', recipientId: 'u2', content: 'If it takes long you can mail me at my mail address.', type: 'text', status: 'read', timestamp: new Date(Date.now() - 1800000).toISOString() },
-  ],
-};
-
 interface ChatWindowProps {
   contactId: string | null;
   onBack: () => void;
@@ -47,7 +37,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
 
     const fetchContact = async () => {
       try {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('token');
         const res = await fetch(`${API_BASE}/users/${contactId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -74,9 +64,10 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     fetchContact();
   }, [contactId]);
 
+  // NOTE: message history is not yet persisted anywhere — starts empty
+  // for every conversation until real message storage/retrieval is built.
   useEffect(() => {
-    if (contactId && mockMessages[contactId]) setMessages(mockMessages[contactId]);
-    else setMessages([]);
+    setMessages([]);
   }, [contactId]);
 
   useEffect(() => {
@@ -85,38 +76,24 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
 
   const handleSend = (content: string, type: 'text' | 'image' | 'file' = 'text', fileData?: { name: string; url: string; size?: number }) => {
     const newMessage: Message = {
-      id: 'new-' + Date.now(), 
-      conversationId: 'c' + contactId, 
-      senderId: 'me', 
+      id: 'new-' + Date.now(),
+      conversationId: 'c' + contactId,
+      senderId: 'me',
       recipientId: 'u' + contactId,
-      content, 
-      type, 
-      status: 'sent', 
+      content,
+      type,
+      status: 'sent',
       timestamp: new Date().toISOString(),
       fileName: fileData?.name,
       fileUrl: fileData?.url,
       fileSize: fileData?.size,
     };
     setMessages((prev) => [...prev, newMessage]);
-    
-    // Simulate reply
-    setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        const reply: Message = {
-          id: 'reply-' + Date.now(), 
-          conversationId: 'c' + contactId, 
-          senderId: 'u' + contactId, 
-          recipientId: 'me',
-          content: 'Thanks for your message! I will get back to you shortly.', 
-          type: 'text', 
-          status: 'sent',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, reply]);
-      }, 2000);
-    }, 1000);
+
+    // NOTE: no real delivery yet — this message currently only exists in
+    // this browser tab's local state and is never actually sent to the
+    // recipient. Real sending/receiving (via Socket.io + a Message model)
+    // is a separate feature still to be built.
   };
 
   if (!contactId) return <EmptyState />;
@@ -161,7 +138,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
           {messages.map((msg) => (
             <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === 'me'} />
           ))}
-          
+
           {/* Typing indicator */}
           {isTyping && (
             <div className="flex justify-start mb-4">
