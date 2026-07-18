@@ -1,7 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { User } from '../models/User';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+// All routes here require a logged-in user — contact info is private.
+router.use(authMiddleware);
 
 // Helper to check if avatar is valid (not empty, not demo pravatar)
 const getCleanAvatar = (avatar: string | undefined): string => {
@@ -12,7 +16,7 @@ const getCleanAvatar = (avatar: string | undefined): string => {
 };
 
 // Get all users (for contacts list)
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     const users = await User.find({}, '-password').sort({ createdAt: -1 });
     res.json({
@@ -34,7 +38,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // Get single user by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const user = await User.findById(req.params.id, '-password');
     if (!user) {
