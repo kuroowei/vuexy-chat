@@ -95,9 +95,11 @@ export default function CallManager() {
     );
   }
 
+  const isLive = callStatus === 'connected';
+
   return (
     <div className="fixed inset-0 z-[100] bg-gray-900 flex flex-col items-center justify-center text-white">
-      {callType === 'video' && callStatus === 'connected' ? (
+      {callType === 'video' && isLive ? (
         <div className="relative w-full h-full">
           <video
             ref={remoteVideoRef}
@@ -130,7 +132,8 @@ export default function CallManager() {
           <h2 className="text-xl font-bold">{remoteUserName}</h2>
           <p className="text-sm text-gray-400 mt-2">
             {callStatus === 'calling' && 'Calling...'}
-            {callStatus === 'connected' && formatDuration(callDuration)}
+            {callStatus === 'connecting' && 'Connecting...'}
+            {isLive && formatDuration(callDuration)}
           </p>
         </div>
       )}

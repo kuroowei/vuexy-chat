@@ -40,7 +40,8 @@ export type CallStatus =
   | 'idle'
   | 'calling'      // I initiated, waiting for callee to answer
   | 'ringing'      // Someone is calling me
-  | 'connected'    // Call is live
+  | 'connecting'   // Callee accepted / caller sent offer, WebRTC handshake in progress
+  | 'connected'    // Call is genuinely live (verified by RTCPeerConnection)
   | 'ended';
 
 interface IncomingCallInfo {
@@ -130,6 +131,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
     remoteUserIdRef.current = null;
   }, [cleanupMedia]);
 
+  const endCallRef = useRef<() => void>(() => {});
+
   const createPeerConnection = useCallback(
     (targetUserId: string) => {
       const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -147,9 +150,15 @@ export function CallProvider({ children }: { children: ReactNode }) {
         setRemoteStream(event.streams[0]);
       };
 
+      // The only place that confirms a call is genuinely live — both the
+      // caller and the callee rely on this rather than optimistically
+      // assuming success right after signaling.
       pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          setCallStatus('connected');
+        }
         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
-          endCall();
+          endCallRef.current();
         }
       };
 
@@ -199,6 +208,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         });
 
         socket.once('call:accepted', async () => {
+          setCallStatus('connecting');
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           socket.emit('webrtc:offer', { targetUserId: calleeId, offer });
@@ -228,7 +238,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       socket.emit('call:accept', { callId: incomingCall.callId });
       setIncomingCall(null);
-      setCallStatus('connected');
+      // Status now flips to 'connected' via pc.onconnectionstatechange once
+      // the real WebRTC handshake completes — not optimistically here.
+      setCallStatus('connecting');
     } catch (err) {
       console.error('acceptCall error:', err);
       resetCallState();
@@ -249,6 +261,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
     setCallStatus('ended');
     resetCallState();
   }, [socket, resetCallState]);
+
+  useEffect(() => {
+    endCallRef.current = endCall;
+  }, [endCall]);
 
   const toggleMute = useCallback(() => {
     if (!localStream) return;
@@ -300,7 +316,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const pc = pcRef.current;
       if (!pc) return;
       await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      setCallStatus('connected');
+      // Actual 'connected' status is now set by pc.onconnectionstatechange,
+      // once the peer connection genuinely finishes negotiating — not here.
     };
 
     const handleIceCandidate = async ({ candidate }: any) => {
