@@ -26,7 +26,6 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
     if (disabled) return;
 
     if (selectedFile) {
-      // Send file message
       const fileData = {
         name: selectedFile.file.name,
         url: selectedFile.preview || URL.createObjectURL(selectedFile.file),
@@ -48,7 +47,6 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file size (10MB max)
     if (file.size > 10 * 1024 * 1024) {
       alert('File size must be less than 10MB');
       return;
@@ -63,7 +61,6 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
       type: isImage ? 'image' : 'file',
     });
 
-    // Reset input so same file can be selected again
     e.target.value = '';
   };
 
@@ -79,7 +76,6 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
 
   return (
     <div className="p-4 bg-white border-t border-gray-100">
-      {/* File Preview */}
       {selectedFile && (
         <div className="mb-3 p-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-3">
           {selectedFile.type === 'image' && selectedFile.preview ? (
@@ -93,7 +89,7 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
             <p className="text-sm font-medium text-gray-900 truncate">{selectedFile.file.name}</p>
             <p className="text-xs text-gray-500">{formatFileSize(selectedFile.file.size)}</p>
           </div>
-          <button 
+          <button
             onClick={clearSelectedFile}
             className="p-1.5 hover:bg-gray-200 rounded-full text-gray-500"
           >
@@ -103,9 +99,8 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
       )}
 
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        {/* File Upload Button */}
-        <button 
-          type="button" 
+        <button
+          type="button"
           onClick={() => fileInputRef.current?.click()}
           className={`p-2.5 rounded-lg transition-colors ${
             selectedFile ? 'text-purple-600 bg-purple-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
@@ -121,7 +116,6 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
           className="hidden"
         />
 
-        {/* Input Area */}
         <div className="flex-1 relative">
           <input
             ref={inputRef}
@@ -136,15 +130,14 @@ export default function ChatInput({ onSend, onTyping, disabled }: ChatInputProps
           </button>
         </div>
 
-        {/* Send or Record Button */}
         {message.trim() || selectedFile ? (
           <button type="submit" className="p-2.5 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200">
             <Send size={18} />
           </button>
         ) : (
-          <button 
-            type="button" 
-            onClick={() => setIsRecording(!isRecording)} 
+          <button
+            type="button"
+            onClick={() => setIsRecording(!isRecording)}
             className={'p-2.5 rounded-full transition-colors ' + (isRecording ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200')}
           >
             <Mic size={18} />

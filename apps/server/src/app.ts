@@ -11,8 +11,11 @@ import { connectDB } from './config/database';
 import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import callRoutes from './routes/calls';
+import messageRoutes from './routes/messages';
 import { User } from './models/User';
 import { Call } from './models/Call';
+import { Message } from './models/Message';
+import { Conversation } from './models/Conversation';
 
 const app = express();
 const httpServer = createServer(app);
@@ -64,6 +67,7 @@ app.use(express.static('public'));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/calls', callRoutes);
+app.use('/api/messages', messageRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });
@@ -87,22 +91,39 @@ io.use(async (socket, next) => {
   }
 });
 
-// Maps a userId to their currently connected socket id.
-// NOTE: this only supports one active connection per user at a time —
-// if the same account is open in two tabs/devices, only the most recent
-// connection will receive call/message events. Fine for now, worth
-// revisiting later if multi-device support becomes a requirement.
 const userSockets = new Map<string, string>();
+const ringingCallsByCallee = new Map<string, string>();
 
-// Tracks calls currently ringing, so we can mark them "missed" if the
-// callee disconnects (closes tab, loses connection) before answering.
-const ringingCallsByCallee = new Map<string, string>(); // calleeUserId -> callId
+async function findOrCreateConversation(userId: string, contactId: string) {
+  let conversation = await Conversation.findOne({
+    isGroup: false,
+    participants: { $all: [userId, contactId], $size: 2 },
+  });
+
+  if (!conversation) {
+    conversation = await Conversation.create({
+      participants: [userId, contactId],
+      lastMessage: '',
+      lastMessageTime: new Date(),
+      isGroup: false,
+    });
+  }
+
+  return conversation;
+}
 
 io.on('connection', (socket) => {
   const userId = socket.data.userId;
   userSockets.set(userId, socket.id);
 
   console.log('User connected: ' + userId);
+
+  // Mark this user online and let everyone else know in real time
+  User.findByIdAndUpdate(userId, { status: 'online' })
+    .then(() => {
+      socket.broadcast.emit('user:status', { userId, status: 'online' });
+    })
+    .catch((err) => console.error('Error setting user online:', err));
 
   socket.on('join_conversation', (conversationId: string) => {
     socket.join('conversation:' + conversationId);
@@ -113,11 +134,53 @@ io.on('connection', (socket) => {
   });
 
   socket.on('typing', ({ contactId, isTyping }: any) => {
-    socket.to('user:' + contactId).emit('typing', { userId, isTyping });
+    const targetSocketId = userSockets.get(contactId);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('typing', { userId, isTyping });
+    }
   });
 
   socket.on('send_message', async (data: any) => {
-    socket.to('conversation:' + data.conversationId).emit('new_message', data);
+    try {
+      const { recipientId, content, type, fileUrl } = data;
+      if (!recipientId || !content || !content.trim()) return;
+
+      const conversation = await findOrCreateConversation(userId, recipientId);
+
+      const message = await Message.create({
+        conversationId: conversation._id,
+        senderId: userId,
+        recipientId,
+        content,
+        type: type || 'text',
+        fileUrl,
+        status: 'sent',
+      });
+
+      conversation.lastMessage = content;
+      conversation.lastMessageTime = new Date();
+      await conversation.save();
+
+      const messagePayload = {
+        id: message._id.toString(),
+        conversationId: conversation._id.toString(),
+        senderId: userId,
+        recipientId,
+        content,
+        type: message.type,
+        fileUrl: message.fileUrl,
+        status: message.status,
+        createdAt: message.createdAt,
+      };
+
+      socket.emit('new_message', messagePayload);
+      const recipientSocketId = userSockets.get(recipientId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('new_message', messagePayload);
+      }
+    } catch (err) {
+      console.error('send_message error:', err);
+    }
   });
 
   // ---- Call signaling ----
@@ -256,6 +319,14 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', async () => {
     userSockets.delete(userId);
+
+    // Mark this user offline and record when they were last seen
+    try {
+      await User.findByIdAndUpdate(userId, { status: 'offline', lastSeen: new Date() });
+      socket.broadcast.emit('user:status', { userId, status: 'offline' });
+    } catch (err) {
+      console.error('Error setting user offline:', err);
+    }
 
     const pendingCallId = ringingCallsByCallee.get(userId);
     if (pendingCallId) {
