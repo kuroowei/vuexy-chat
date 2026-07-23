@@ -3,3 +3,5 @@ apps/server/dist/
 apps/server/.turbo/
 apps/web/tsconfig.tsbuildinfo
 apps/server/public/uploads/
+.env
+apps/server/.env
