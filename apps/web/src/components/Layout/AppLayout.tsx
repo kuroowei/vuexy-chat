@@ -54,7 +54,6 @@ export default function AppLayout() {
     setMobileView('chat');
   };
 
-  // Now delegates to the real CallContext instead of a local demo screen
   const handleStartCall = (
     contactId: string,
     contactName: string,
@@ -138,6 +137,7 @@ export default function AppLayout() {
         <ContactList
           onSelectContact={handleSelectContact}
           activeContact={activeContact}
+          onStartCall={handleStartCall}
           className="flex-shrink-0 w-80 h-full"
         />
         <ChatWindow
@@ -174,6 +174,7 @@ export default function AppLayout() {
         <ContactList
           onSelectContact={handleSelectContact}
           activeContact={activeContact}
+          onStartCall={handleStartCall}
           className="flex-shrink-0 w-full h-full pb-mobile-nav"
         />
       )}

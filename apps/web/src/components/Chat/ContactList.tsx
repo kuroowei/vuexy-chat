@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Phone, Video, Search, MoreVertical } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Phone, Video, Search, MoreVertical, RefreshCw, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import ContactCard from './ContactCard';
 import SearchBar from '../UI/SearchBar';
 import type { Contact } from '@/types';
@@ -23,44 +24,48 @@ const getAvatarUrl = (name: string, existingAvatar: string): string => {
 interface ContactListProps {
   onSelectContact: (id: string) => void;
   activeContact: string | null;
+  onStartCall?: (contactId: string, contactName: string, contactAvatar: string, type: 'audio' | 'video') => void;
   className?: string;
 }
 
-export default function ContactList({ onSelectContact, activeContact, className }: ContactListProps) {
+export default function ContactList({ onSelectContact, activeContact, onStartCall, className }: ContactListProps) {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showMenu, setShowMenu] = useState(false);
+  const searchWrapperRef = useRef<HTMLDivElement>(null);
+
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE_URL}/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (data.users && data.users.length > 0) {
+        const mappedContacts: Contact[] = data.users.map((user: any) => ({
+          id: user.id,
+          userId: user.userId,
+          name: user.name,
+          avatar: getAvatarUrl(user.name, user.avatar),
+          status: user.status || 'offline',
+          lastMessage: '',
+          lastMessageTime: user.lastSeen || new Date().toISOString(),
+          unreadCount: 0,
+        }));
+        setContacts(mappedContacts);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/users`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const data = await res.json();
-        if (data.users && data.users.length > 0) {
-          const mappedContacts: Contact[] = data.users.map((user: any) => ({
-            id: user.id,
-            userId: user.userId,
-            name: user.name,
-            avatar: getAvatarUrl(user.name, user.avatar),
-            status: user.status || 'offline',
-            lastMessage: '',
-            lastMessageTime: user.lastSeen || new Date().toISOString(),
-            unreadCount: 0,
-          }));
-          setContacts(mappedContacts);
-        }
-      } catch (error) {
-        console.error('Failed to fetch users:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUsers();
   }, []);
 
@@ -74,6 +79,43 @@ export default function ContactList({ onSelectContact, activeContact, className 
   }, [contacts, searchQuery]);
 
   const remainingContacts = useMemo(() => contacts.slice(2), [contacts]);
+
+  const activeContactData = useMemo(
+    () => contacts.find((c) => c.id === activeContact),
+    [contacts, activeContact]
+  );
+
+  const handleAudioCall = () => {
+    if (!activeContactData) {
+      alert('Select a chat first to start a call.');
+      return;
+    }
+    onStartCall?.(activeContactData.id, activeContactData.name, activeContactData.avatar, 'audio');
+  };
+
+  const handleVideoCall = () => {
+    if (!activeContactData) {
+      alert('Select a chat first to start a call.');
+      return;
+    }
+    onStartCall?.(activeContactData.id, activeContactData.name, activeContactData.avatar, 'video');
+  };
+
+  const handleFocusSearch = () => {
+    const input = searchWrapperRef.current?.querySelector('input');
+    input?.focus();
+  };
+
+  const handleRefresh = () => {
+    setShowMenu(false);
+    setLoading(true);
+    fetchUsers();
+  };
+
+  const handleGoToSettings = () => {
+    setShowMenu(false);
+    navigate('/settings');
+  };
 
   if (loading) {
     return (
@@ -90,13 +132,35 @@ export default function ContactList({ onSelectContact, activeContact, className 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-gray-800">Chat</h2>
           <div className="flex gap-1">
-            <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><Phone size={18} /></button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><Video size={18} /></button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><Search size={18} /></button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"><MoreVertical size={18} /></button>
+            <button onClick={handleAudioCall} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Call selected contact"><Phone size={18} /></button>
+            <button onClick={handleVideoCall} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Video call selected contact"><Video size={18} /></button>
+            <button onClick={handleFocusSearch} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="Search"><Search size={18} /></button>
+            <div className="relative">
+              <button onClick={() => setShowMenu((prev) => !prev)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors" title="More">
+                <MoreVertical size={18} />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
+                  <button
+                    onClick={handleRefresh}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+                  >
+                    <RefreshCw size={15} /> Refresh Contacts
+                  </button>
+                  <button
+                    onClick={handleGoToSettings}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+                  >
+                    <Settings size={15} /> Go to Settings
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search contact or message..." />
+        <div ref={searchWrapperRef}>
+          <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search contact or message..." />
+        </div>
       </div>
 
       {/* Single scrollable region covering both Chats and Contacts */}

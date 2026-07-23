@@ -105,5 +105,33 @@ router.post('/:contactId', async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+// DELETE /api/messages/:contactId — clear all messages in this conversation
+// (for both participants, since it's a shared conversation history).
+router.delete('/:contactId', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const { contactId } = req.params;
+
+    const conversation = await Conversation.findOne({
+      isGroup: false,
+      participants: { $all: [userId, contactId], $size: 2 },
+    });
+
+    if (!conversation) {
+      return res.json({ message: 'No conversation to clear' });
+    }
+
+    await Message.deleteMany({ conversationId: conversation._id });
+
+    conversation.lastMessage = '';
+    conversation.lastMessageTime = new Date();
+    await conversation.save();
+
+    res.json({ message: 'Conversation cleared' });
+  } catch (error) {
+    console.error('Error clearing conversation:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 export default router;
