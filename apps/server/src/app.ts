@@ -121,7 +121,7 @@ io.on('connection', (socket) => {
   // Mark this user online and let everyone else know in real time
   User.findByIdAndUpdate(userId, { status: 'online' })
     .then(() => {
-      socket.broadcast.emit('user:status', { userId, status: 'online' });
+      io.emit('user:status', { userId, status: 'online' });
     })
     .catch((err) => console.error('Error setting user online:', err));
 
@@ -203,7 +203,7 @@ io.on('connection', (socket) => {
         call.status = 'missed';
         call.endedAt = new Date();
         await call.save();
-        socket.emit('call:unavailable', { callId: call._id.toString() });
+        io.emit('call:unavailable', { callId: call._id.toString() });
         return;
       }
 
@@ -323,7 +323,7 @@ io.on('connection', (socket) => {
     // Mark this user offline and record when they were last seen
     try {
       await User.findByIdAndUpdate(userId, { status: 'offline', lastSeen: new Date() });
-      socket.broadcast.emit('user:status', { userId, status: 'offline' });
+      io.emit('user:status', { userId, status: 'offline' });
     } catch (err) {
       console.error('Error setting user offline:', err);
     }
