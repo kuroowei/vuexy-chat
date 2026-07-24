@@ -140,6 +140,13 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('voice_recording', ({ contactId, isRecording }: any) => {
+    const targetSocketId = userSockets.get(contactId);
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('voice_recording', { userId, isRecording });
+    }
+  });
+
   socket.on('send_message', async (data: any) => {
     try {
       const { recipientId, content, type, fileUrl } = data;

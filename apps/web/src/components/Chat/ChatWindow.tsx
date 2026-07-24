@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Phone, Video, Search, MoreVertical, X, ShieldOff, Trash2, User } from 'lucide-react';
+import { ArrowLeft, Phone, Video, Search, MoreVertical, X, ShieldOff, Trash2, User, Mic } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import EmptyState from './EmptyState';
@@ -38,6 +38,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [isContactRecording, setIsContactRecording] = useState(false);
   const [contact, setContact] = useState<Contact | undefined>();
   const [headerImgError, setHeaderImgError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -119,7 +120,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     fetchHistory();
   }, [contactId]);
 
-  // Real-time: receive new messages, typing indicators, and status changes
+  // Real-time: receive new messages, typing indicators, recording indicators, and status changes
   useEffect(() => {
     if (!socket || !contactId) return;
 
@@ -153,6 +154,12 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
       }
     };
 
+    const handleRecordingEvent = ({ userId: fromUserId, isRecording }: any) => {
+      if (fromUserId === contactId) {
+        setIsContactRecording(isRecording);
+      }
+    };
+
     const handleStatusChange = ({ userId: changedUserId, status }: any) => {
       if (changedUserId !== contactId) return;
       setContact((prev) => (prev ? { ...prev, status } : prev));
@@ -160,11 +167,13 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
 
     socket.on('new_message', handleNewMessage);
     socket.on('typing', handleTypingEvent);
+    socket.on('voice_recording', handleRecordingEvent);
     socket.on('user:status', handleStatusChange);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('typing', handleTypingEvent);
+      socket.off('voice_recording', handleRecordingEvent);
       socket.off('user:status', handleStatusChange);
     };
   }, [socket, contactId, user?.id]);
@@ -173,7 +182,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping, showSearch]);
 
-  const handleSend = (content: string, type: 'text' | 'image' | 'file' = 'text', fileData?: { name: string; url: string; size?: number }) => {
+  const handleSend = (content: string, type: 'text' | 'image' | 'file'| 'audio' = 'text', fileData?: { name: string; url: string; size?: number }) => {
     if (!socket || !contactId || !user) return;
 
     socket.emit('send_message', {
@@ -187,6 +196,11 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
   const handleTyping = (typing: boolean) => {
     if (!socket || !contactId) return;
     socket.emit('typing', { contactId, isTyping: typing });
+  };
+
+  const handleRecordingChange = (recording: boolean) => {
+    if (!socket || !contactId) return;
+    socket.emit('voice_recording', { contactId, isRecording: recording });
   };
 
   const handleAudioCall = () => {
@@ -272,7 +286,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             </div>
             <div className="min-w-0 text-left">
               <h3 className="text-sm font-semibold text-gray-900 truncate">{contact?.name}</h3>
-              <p className="text-xs text-gray-500">{isTyping ? <span className="text-purple-600 font-medium">typing...</span> : contact?.status === 'online' ? 'Online' : 'Offline'}</p>
+              <p className="text-xs text-gray-500">{isContactRecording ? <span className="text-red-500 font-medium">recording voice message...</span> : isTyping ? <span className="text-purple-600 font-medium">typing...</span> : contact?.status === 'online' ? 'Online' : 'Offline'}</p>
             </div>
           </button>
         </div>
@@ -364,8 +378,18 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === user?.id} />
           ))}
 
+          {/* Voice recording indicator */}
+          {!searchQuery.trim() && isContactRecording && (
+            <div className="flex justify-start mb-4">
+              <div className="bg-white px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm border border-gray-100 flex items-center gap-2">
+                <Mic size={14} className="text-red-500 animate-pulse" />
+                <span className="text-xs text-gray-500">Recording voice message...</span>
+              </div>
+            </div>
+          )}
+
           {/* Typing indicator */}
-          {!searchQuery.trim() && isTyping && (
+          {!searchQuery.trim() && !isContactRecording && isTyping && (
             <div className="flex justify-start mb-4">
               <div className="bg-white px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm border border-gray-100">
                 <div className="flex gap-1">
@@ -381,7 +405,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
       </div>
 
       {/* Input */}
-      <ChatInput onSend={handleSend} onTyping={handleTyping} />
+      <ChatInput onSend={handleSend} onTyping={handleTyping} onRecordingChange={handleRecordingChange} />
 
       {/* View Contact modal */}
       {showProfile && contact && (

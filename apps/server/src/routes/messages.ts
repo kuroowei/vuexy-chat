@@ -1,11 +1,36 @@
 import { Router, Response } from 'express';
+import multer from 'multer';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { Message } from '../models/Message';
 import { Conversation } from '../models/Conversation';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import cloudinary from '../config/cloudinary';
 
 const router = Router();
 
 router.use(authMiddleware);
+
+// Multer + Cloudinary configuration for voice notes recorded in chat
+const voiceNoteStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async () => ({
+    folder: 'chat-app-voice-notes',
+    resource_type: 'video', // Cloudinary stores audio under the 'video' resource type
+    allowed_formats: ['webm', 'mp3', 'wav', 'ogg', 'm4a'],
+  }),
+});
+
+const uploadVoiceNote = multer({
+  storage: voiceNoteStorage,
+  fileFilter: (req: any, file: any, cb: any) => {
+    if (!file.mimetype.startsWith('audio/')) {
+      cb(new Error('Only audio files are allowed'));
+      return;
+    }
+    cb(null, true);
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
 
 // Find an existing 1-on-1 conversation between the current user and
 // contactId, or create one if it doesn't exist yet.
@@ -38,6 +63,21 @@ const toMessageResponse = (message: any) => ({
   status: message.status,
   replyTo: message.replyTo ? message.replyTo.toString() : undefined,
   createdAt: message.createdAt,
+});
+
+// POST /api/messages/upload-voice-note — upload a recorded voice note to
+// Cloudinary and return its URL. Declared before the /:contactId routes so
+// Express doesn't mistake "upload-voice-note" for a contactId.
+router.post('/upload-voice-note', uploadVoiceNote.single('audio'), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No audio file provided' });
+    }
+    res.json({ url: (req.file as any).path });
+  } catch (error) {
+    console.error('Voice note upload error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // GET /api/messages/:contactId — fetch (or start) the conversation with

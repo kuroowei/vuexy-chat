@@ -42,6 +42,25 @@ export default function MessageBubble({ message, isOwn }: MessageBubbleProps) {
     );
   }
 
+  // For voice note messages
+  if (message.type === 'audio' && message.fileUrl) {
+    return (
+      <div className={'flex ' + (isOwn ? 'justify-end' : 'justify-start') + ' mb-3'}>
+        <div style={{ maxWidth: '280px', width: '100%' }}>
+          <div className={'px-3 py-2.5 rounded-xl shadow-sm border ' + (isOwn ? 'bg-purple-600 border-purple-500' : 'bg-white border-gray-100')}>
+            <audio controls src={message.fileUrl} style={{ width: '100%', height: '36px' }} />
+          </div>
+          <div className={'flex items-center gap-1 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+            <span className="text-[10px] text-gray-400">
+              {format(new Date(message.timestamp), 'h:mm a')}
+            </span>
+            {isOwn && <span className="text-gray-400">{statusIcons[message.status]}</span>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // For file messages
   if (message.type === 'file') {
     return (
