@@ -2,27 +2,19 @@
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import cloudinary from '../config/cloudinary';
 
 const router = Router();
 
-// Multer configuration
-const uploadDir = path.join(__dirname, '..', '..', 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, `${name}-${uniqueSuffix}${ext}`);
-  },
+// Multer + Cloudinary configuration
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: 'chat-app-avatars',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif'],
+    transformation: [{ width: 500, height: 500, crop: 'limit' }],
+  }),
 });
 
 const fileFilter = (req: any, file: any, cb: any) => {
@@ -38,6 +30,24 @@ const upload = multer({
   fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 },
 });
+
+// Extract the Cloudinary public_id from a stored avatar URL so we can delete it
+const getPublicIdFromUrl = (url: string): string | null => {
+  const match = url.match(/\/chat-app-avatars\/([^./]+)\.[a-zA-Z]+$/);
+  return match ? `chat-app-avatars/${match[1]}` : null;
+};
+
+const deleteOldAvatar = async (avatarUrl: string | undefined) => {
+  if (!avatarUrl || !avatarUrl.startsWith('http')) return;
+  const publicId = getPublicIdFromUrl(avatarUrl);
+  if (publicId) {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (err) {
+      console.error('Failed to delete old Cloudinary avatar:', err);
+    }
+  }
+};
 
 // Helper to get full avatar URL
 const getAvatarUrl = (avatarPath: string | undefined): string => {
@@ -73,7 +83,7 @@ router.post('/register', upload.single('avatar'), async (req: Request, res: Resp
       return res.status(400).json({ message: 'Email already exists' });
     }
 
-    const avatarPath = req.file ? `/uploads/${req.file.filename}` : '';
+    const avatarPath = req.file ? (req.file as any).path : '';
 
     let user;
     try {
@@ -168,14 +178,8 @@ router.post('/update-profile', upload.single('avatar'), async (req: Request, res
     if (phone) user.phone = phone;
 
     if (req.file) {
-      // Delete old avatar if exists
-      if (user.avatar && !user.avatar.startsWith('http')) {
-        const oldPath = path.join(uploadDir, path.basename(user.avatar));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
-      user.avatar = `/uploads/${req.file.filename}`;
+      await deleteOldAvatar(user.avatar);
+      user.avatar = (req.file as any).path;
     }
 
     try {
@@ -219,13 +223,8 @@ router.put('/profile', upload.single('avatar'), async (req: Request, res: Respon
     if (phone) user.phone = phone;
 
     if (req.file) {
-      if (user.avatar && !user.avatar.startsWith('http')) {
-        const oldPath = path.join(uploadDir, path.basename(user.avatar));
-        if (fs.existsSync(oldPath)) {
-          fs.unlinkSync(oldPath);
-        }
-      }
-      user.avatar = `/uploads/${req.file.filename}`;
+      await deleteOldAvatar(user.avatar);
+      user.avatar = (req.file as any).path;
     }
 
     try {
