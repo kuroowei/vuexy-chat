@@ -32,6 +32,22 @@ const uploadVoiceNote = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
 });
 
+// Multer + Cloudinary configuration for images/files shared in chat
+const chatMediaStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req: any, file: any) => ({
+    folder: 'chat-app-media',
+    resource_type: 'auto', // lets Cloudinary store images as images, everything else as raw files
+    use_filename: true,
+    unique_filename: true,
+  }),
+});
+
+const uploadChatMedia = multer({
+  storage: chatMediaStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+});
+
 // Find an existing 1-on-1 conversation between the current user and
 // contactId, or create one if it doesn't exist yet.
 async function findOrCreateConversation(userId: string, contactId: string) {
@@ -76,6 +92,20 @@ router.post('/upload-voice-note', uploadVoiceNote.single('audio'), async (req: A
     res.json({ url: (req.file as any).path });
   } catch (error) {
     console.error('Voice note upload error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/messages/upload-media — upload a shared image or file to Cloudinary
+// and return its URL. Declared before /:contactId for the same reason as above.
+router.post('/upload-media', uploadChatMedia.single('file'), async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file provided' });
+    }
+    res.json({ url: (req.file as any).path });
+  } catch (error) {
+    console.error('Chat media upload error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

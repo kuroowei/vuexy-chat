@@ -14,6 +14,7 @@ export default function ChatInput({ onSend, onTyping, onRecordingChange, disable
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [isUploadingVoiceNote, setIsUploadingVoiceNote] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [selectedFile, setSelectedFile] = useState<{ file: File; preview?: string; type: 'image' | 'file' } | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -39,18 +40,46 @@ export default function ChatInput({ onSend, onTyping, onRecordingChange, disable
     typingTimeoutRef.current = setTimeout(() => onTyping?.(false), 2000);
   }, [onTyping]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const uploadChatMedia = async (file: File): Promise<string | null> => {
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch(`${API_URL}/messages/upload-media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Upload failed');
+      return data.url;
+    } catch (error) {
+      console.error('Chat media upload error:', error);
+      alert('Could not send this file. Please try again.');
+      return null;
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (disabled) return;
 
     if (selectedFile) {
-      const fileData = {
-        name: selectedFile.file.name,
-        url: selectedFile.preview || URL.createObjectURL(selectedFile.file),
-        size: selectedFile.file.size,
-      };
-      onSend(selectedFile.file.name, selectedFile.type, fileData);
+      const fileToSend = selectedFile;
       setSelectedFile(null);
+      setIsUploadingFile(true);
+      const url = await uploadChatMedia(fileToSend.file);
+      setIsUploadingFile(false);
+
+      if (url) {
+        onSend(fileToSend.file.name, fileToSend.type, {
+          name: fileToSend.file.name,
+          url,
+          size: fileToSend.file.size,
+        });
+      }
       return;
     }
 
@@ -205,6 +234,13 @@ export default function ChatInput({ onSend, onTyping, onRecordingChange, disable
         </div>
       )}
 
+      {isUploadingFile && (
+        <div className="mb-3 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-xl flex items-center gap-2">
+          <span className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-medium text-purple-600">Sending...</span>
+        </div>
+      )}
+
       {isRecording && (
         <div className="mb-3 px-4 py-2.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
@@ -248,7 +284,7 @@ export default function ChatInput({ onSend, onTyping, onRecordingChange, disable
         </div>
 
         {message.trim() || selectedFile ? (
-          <button type="submit" className="p-2.5 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200">
+          <button type="submit" disabled={isUploadingFile} className="p-2.5 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors shadow-lg shadow-purple-200 disabled:opacity-60">
             <Send size={18} />
           </button>
         ) : (
