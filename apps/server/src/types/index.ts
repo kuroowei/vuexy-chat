@@ -53,3 +53,10 @@ export interface ICall extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+export interface IFriendRequest extends Document {
+  senderId: Types.ObjectId;
+  recipientId: Types.ObjectId;
+  status: 'pending' | 'accepted';
+  createdAt: Date;
+  respondedAt?: Date;
+}

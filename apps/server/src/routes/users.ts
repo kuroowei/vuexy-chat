@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { User } from '../models/User';
+import { FriendRequest } from '../models/FriendRequest';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -13,7 +14,7 @@ const getCleanAvatar = (avatar: string | undefined): string => {
   return avatar;
 };
 
-const toContactResponse = (user: any) => ({
+export const toContactResponse = (user: any) => ({
   id: user._id.toString(),
   userId: user._id.toString(),
   name: user.name,
@@ -24,23 +25,53 @@ const toContactResponse = (user: any) => ({
   lastSeen: user.lastSeen,
 });
 
-// Get all users (for contacts list) — excludes anyone the current user
-// has blocked or removed from their contact list.
+// Get all "discoverable" users (for the Find People tab) — excludes yourself,
+// anyone you've blocked or removed, and anyone who is already your friend
+// (they belong in the Friends list instead). Each user is tagged with
+// friendStatus so the frontend can show "Add Friend" / "Requested" / "Confirm".
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const currentUser = await User.findById(req.user!.userId, 'blockedUsers hiddenContacts');
+    const userId = req.user!.userId;
+    const currentUser = await User.findById(userId, 'blockedUsers hiddenContacts');
     const excludedIds = [
       ...(currentUser?.blockedUsers || []),
       ...(currentUser?.hiddenContacts || []),
-    ];
+    ].map((id: any) => id.toString());
+
+    const relatedRequests = await FriendRequest.find({
+      $or: [{ senderId: userId }, { recipientId: userId }],
+    });
+
+    const friendIds: string[] = [];
+    const pendingSentIds: string[] = [];
+    const pendingReceivedIds: string[] = [];
+
+    relatedRequests.forEach((fr) => {
+      const otherId = fr.senderId.toString() === userId ? fr.recipientId.toString() : fr.senderId.toString();
+      if (fr.status === 'accepted') {
+        friendIds.push(otherId);
+      } else if (fr.senderId.toString() === userId) {
+        pendingSentIds.push(otherId);
+      } else {
+        pendingReceivedIds.push(otherId);
+      }
+    });
 
     const users = await User.find(
-      { _id: { $nin: excludedIds } },
+      { _id: { $nin: [...excludedIds, ...friendIds, userId] } },
       '-password'
     ).sort({ createdAt: -1 });
 
     res.json({
-      users: users.map(toContactResponse),
+      users: users.map((u) => {
+        const id = u._id.toString();
+        const friendStatus = pendingSentIds.includes(id)
+          ? 'pending_sent'
+          : pendingReceivedIds.includes(id)
+          ? 'pending_received'
+          : 'none';
+        return { ...toContactResponse(u), friendStatus };
+      }),
     });
   } catch (error) {
     console.error('Error fetching users:', error);

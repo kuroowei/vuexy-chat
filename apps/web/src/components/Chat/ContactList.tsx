@@ -39,7 +39,7 @@ export default function ContactList({ onSelectContact, activeContact, onStartCal
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/users`, {
+      const res = await fetch(`${API_BASE_URL}/friends`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -57,9 +57,11 @@ export default function ContactList({ onSelectContact, activeContact, onStartCal
           unreadCount: 0,
         }));
         setContacts(mappedContacts);
+      } else {
+        setContacts([]);
       }
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      console.error('Failed to fetch friends:', error);
     } finally {
       setLoading(false);
     }
@@ -170,7 +172,7 @@ export default function ContactList({ onSelectContact, activeContact, onStartCal
         </div>
 
         {filteredContacts.length === 0 ? (
-          <div className="p-8 text-center"><p className="text-sm text-gray-500">No contacts found</p></div>
+          <div className="p-8 text-center"><p className="text-sm text-gray-500">No friends yet — add some in Contacts</p></div>
         ) : (
           filteredContacts.map((contact) => (
             <ContactCard key={contact.id} contact={contact} isActive={activeContact === contact.id} onClick={() => onSelectContact(contact.id)} />

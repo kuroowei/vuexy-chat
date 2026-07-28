@@ -1,9 +1,11 @@
-import { Search, Phone, Video, MoreVertical, MessageCircle, X } from 'lucide-react';
+import { Search, Phone, Video, MoreVertical, MessageCircle, X, UserPlus, Check, UserX, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 const BACKEND_URL = API_BASE_URL.replace('/api', '');
+
+type FriendStatus = 'none' | 'pending_sent' | 'pending_received';
 
 interface Contact {
   id: string;
@@ -13,6 +15,13 @@ interface Contact {
   avatar: string;
   status: 'online' | 'offline' | 'away' | 'busy';
   lastSeen: string;
+  friendStatus?: FriendStatus;
+}
+
+interface FriendRequestItem {
+  id: string;
+  user: Contact;
+  createdAt: string;
 }
 
 const getAvatarUrl = (name: string, existingAvatar: string): string => {
@@ -47,25 +56,48 @@ interface ContactsPageProps {
 
 export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'online'>('all');
+  const [activeTab, setActiveTab] = useState<'friends' | 'requests' | 'find'>('friends');
   const [showOptions, setShowOptions] = useState<string | null>(null);
-  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  const [friends, setFriends] = useState<Contact[]>([]);
+  const [requests, setRequests] = useState<FriendRequestItem[]>([]);
+  const [discoverUsers, setDiscoverUsers] = useState<Contact[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [profileContact, setProfileContact] = useState<Contact | null>(null);
   const [actionError, setActionError] = useState('');
+  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
 
-  const fetchContacts = async () => {
+  const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+
+  const fetchFriends = async () => {
+    const res = await fetch(`${API_BASE_URL}/friends`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to load friends');
+    setFriends(data.users || []);
+  };
+
+  const fetchRequests = async () => {
+    const res = await fetch(`${API_BASE_URL}/friends/requests`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to load friend requests');
+    setRequests(data.requests || []);
+  };
+
+  const fetchDiscoverUsers = async () => {
+    const res = await fetch(`${API_BASE_URL}/users`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to load people');
+    setDiscoverUsers(data.users || []);
+  };
+
+  const loadAll = async () => {
+    setError('');
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/users`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to load contacts');
-      setContacts(data.users || []);
+      await Promise.all([fetchFriends(), fetchRequests(), fetchDiscoverUsers()]);
     } catch (err: any) {
-      console.error('Failed to fetch contacts:', err);
+      console.error('Failed to load contacts data:', err);
       setError('Could not load contacts. Please try again.');
     } finally {
       setLoading(false);
@@ -73,16 +105,17 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
   };
 
   useEffect(() => {
-    fetchContacts();
+    loadAll();
   }, []);
 
-  const filteredContacts = contacts.filter(contact => {
+  const filteredFriends = friends.filter((contact) => {
     const q = searchQuery.toLowerCase();
-    const matchesSearch =
-      contact.name.toLowerCase().includes(q) ||
-      (contact.phone && contact.phone.includes(searchQuery));
-    const matchesTab = activeTab === 'all' || (activeTab === 'online' && contact.status === 'online');
-    return matchesSearch && matchesTab;
+    return contact.name.toLowerCase().includes(q) || (contact.phone && contact.phone.includes(searchQuery));
+  });
+
+  const filteredDiscoverUsers = discoverUsers.filter((contact) => {
+    const q = searchQuery.toLowerCase();
+    return contact.name.toLowerCase().includes(q) || (contact.phone && contact.phone.includes(searchQuery));
   });
 
   const statusColors: Record<Contact['status'], string> = {
@@ -115,7 +148,7 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
     if (onStartChat) {
       onStartChat(contactId);
     } else {
-      alert(`Opening chat with ${contacts.find(c => c.id === contactId)?.name}...`);
+      alert(`Opening chat with ${friends.find((c) => c.id === contactId)?.name}...`);
     }
   };
 
@@ -140,43 +173,216 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
     }
 
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/users/${contact.id}/block`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to block contact');
-      setContacts(prev => prev.filter(c => c.id !== contact.id));
+      setFriends((prev) => prev.filter((c) => c.id !== contact.id));
+      setDiscoverUsers((prev) => prev.filter((c) => c.id !== contact.id));
     } catch (err: any) {
       console.error('Block contact error:', err);
       setActionError(err.message || 'Failed to block contact');
     }
   };
 
-  const handleDeleteContact = async (contact: Contact, e: React.MouseEvent) => {
+  const handleRemoveFriend = async (contact: Contact, e: React.MouseEvent) => {
     e.stopPropagation();
     setShowOptions(null);
     setActionError('');
 
-    if (!window.confirm(`Remove ${contact.name} from your contacts?`)) {
+    if (!window.confirm(`Remove ${contact.name} from your friends?`)) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_BASE_URL}/users/${contact.id}/hide`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${API_BASE_URL}/friends/${contact.id}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to remove contact');
-      setContacts(prev => prev.filter(c => c.id !== contact.id));
+      if (!res.ok) throw new Error(data.message || 'Failed to remove friend');
+      setFriends((prev) => prev.filter((c) => c.id !== contact.id));
     } catch (err: any) {
-      console.error('Delete contact error:', err);
-      setActionError(err.message || 'Failed to remove contact');
+      console.error('Remove friend error:', err);
+      setActionError(err.message || 'Failed to remove friend');
     }
   };
+
+  const handleSendRequest = async (contact: Contact) => {
+    setActionError('');
+    setPendingActionId(contact.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/friends/request/${contact.id}`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to send friend request');
+
+      if (data.status === 'accepted') {
+        setDiscoverUsers((prev) => prev.filter((c) => c.id !== contact.id));
+        await fetchFriends();
+      } else {
+        setDiscoverUsers((prev) =>
+          prev.map((c) => (c.id === contact.id ? { ...c, friendStatus: 'pending_sent' } : c))
+        );
+      }
+    } catch (err: any) {
+      console.error('Send friend request error:', err);
+      setActionError(err.message || 'Failed to send friend request');
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const handleAcceptRequest = async (request: FriendRequestItem) => {
+    setActionError('');
+    setPendingActionId(request.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/friends/accept/${request.id}`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to accept friend request');
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+      await fetchFriends();
+    } catch (err: any) {
+      console.error('Accept friend request error:', err);
+      setActionError(err.message || 'Failed to accept friend request');
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const handleDeclineRequest = async (request: FriendRequestItem) => {
+    setActionError('');
+    setPendingActionId(request.id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/friends/decline/${request.id}`, {
+        method: 'POST',
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to decline friend request');
+      setRequests((prev) => prev.filter((r) => r.id !== request.id));
+    } catch (err: any) {
+      console.error('Decline friend request error:', err);
+      setActionError(err.message || 'Failed to decline friend request');
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const renderContactRow = (contact: Contact, isFriend: boolean) => (
+    <div
+      key={contact.id}
+      className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer group relative"
+    >
+      <div className="relative">
+        <img
+          src={getAvatarUrl(contact.name, contact.avatar)}
+          alt={contact.name}
+          className="w-12 h-12 rounded-full object-cover"
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+          }}
+        />
+        {isFriend && <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${statusColors[contact.status]}`} />}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <h3 className="font-semibold text-gray-900 truncate">{contact.name}</h3>
+        <p className="text-sm text-gray-500 truncate">
+          {contact.phone || 'No phone number'}
+        </p>
+        {isFriend && <p className="text-xs text-gray-400">{getStatusLabel(contact.status, contact.lastSeen)}</p>}
+      </div>
+
+      {isFriend ? (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => handleMessage(contact.id, e)}
+            className="p-2 hover:bg-purple-50 rounded-full text-purple-600"
+            title="Message"
+          >
+            <MessageCircle size={18} />
+          </button>
+          <button
+            onClick={(e) => handleAudioCall(contact, e)}
+            className="p-2 hover:bg-green-50 rounded-full text-green-600"
+            title="Audio Call"
+          >
+            <Phone size={18} />
+          </button>
+          <button
+            onClick={(e) => handleVideoCall(contact, e)}
+            className="p-2 hover:bg-blue-50 rounded-full text-blue-600"
+            title="Video Call"
+          >
+            <Video size={18} />
+          </button>
+          <div className="relative">
+            <button
+              onClick={(e) => handleMoreOptions(contact.id, e)}
+              className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
+              title="More"
+            >
+              <MoreVertical size={18} />
+            </button>
+
+            {showOptions === contact.id && (
+              <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
+                <button
+                  onClick={(e) => handleViewProfile(contact, e)}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+                >
+                  View Profile
+                </button>
+                <button
+                  onClick={(e) => handleBlockContact(contact, e)}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
+                >
+                  Block Contact
+                </button>
+                <button
+                  onClick={(e) => handleRemoveFriend(contact, e)}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-red-600"
+                >
+                  Remove Friend
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div onClick={(e) => e.stopPropagation()}>
+          {contact.friendStatus === 'pending_sent' ? (
+            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+              <Clock size={13} /> Requested
+            </span>
+          ) : contact.friendStatus === 'pending_received' ? (
+            <button
+              onClick={() => setActiveTab('requests')}
+              className="px-3 py-1.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600 hover:bg-purple-100"
+            >
+              Respond in Requests
+            </button>
+          ) : (
+            <button
+              onClick={() => handleSendRequest(contact)}
+              disabled={pendingActionId === contact.id}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60"
+            >
+              <UserPlus size={13} /> Add Friend
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="h-full flex flex-col bg-white relative">
@@ -196,20 +402,33 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
 
         <div className="flex gap-2">
           <button
-            onClick={() => setActiveTab('all')}
+            onClick={() => setActiveTab('friends')}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              activeTab === 'all' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'
+              activeTab === 'friends' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
-            All
+            Friends
           </button>
           <button
-            onClick={() => setActiveTab('online')}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              activeTab === 'online' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'
+            onClick={() => setActiveTab('requests')}
+            className={`relative px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              activeTab === 'requests' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
-            Online
+            Requests
+            {requests.length > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                {requests.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('find')}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              activeTab === 'find' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            Find People
           </button>
         </div>
       </div>
@@ -223,7 +442,7 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
       {loading && (
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          <p className="mt-2 text-sm text-gray-500">Loading contacts...</p>
+          <p className="mt-2 text-sm text-gray-500">Loading...</p>
         </div>
       )}
 
@@ -233,98 +452,66 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
         </div>
       )}
 
-      {!loading && !error && (
+      {!loading && !error && activeTab === 'friends' && (
         <div className="flex-1 overflow-y-auto pb-20">
           <div className="px-4 py-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
-              {filteredContacts.length} Contacts
+              {filteredFriends.length} Friends
             </p>
           </div>
-
-          {filteredContacts.length === 0 ? (
+          {filteredFriends.length === 0 ? (
             <div className="p-8 text-center">
-              <p className="text-sm text-gray-500">No contacts found</p>
+              <p className="text-sm text-gray-500">No friends yet — try the Find People tab</p>
             </div>
           ) : (
-            filteredContacts.map((contact) => (
-              <div
-                key={contact.id}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer group relative"
-              >
-                <div className="relative">
-                  <img
-                    src={getAvatarUrl(contact.name, contact.avatar)}
-                    alt={contact.name}
-                    className="w-12 h-12 rounded-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=7c3aed&color=fff&size=128&bold=true`;
-                    }}
-                  />
-                  <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${statusColors[contact.status]}`} />
-                </div>
+            filteredFriends.map((contact) => renderContactRow(contact, true))
+          )}
+        </div>
+      )}
 
+      {!loading && !error && activeTab === 'requests' && (
+        <div className="flex-1 overflow-y-auto pb-20">
+          <div className="px-4 py-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              {requests.length} Pending Requests
+            </p>
+          </div>
+          {requests.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-gray-500">No pending friend requests</p>
+            </div>
+          ) : (
+            requests.map((request) => (
+              <div key={request.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                <img
+                  src={getAvatarUrl(request.user.name, request.user.avatar)}
+                  alt={request.user.name}
+                  className="w-12 h-12 rounded-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = `https://ui-avatars.com/api/?name=${encodeURIComponent(request.user.name)}&background=7c3aed&color=fff&size=128&bold=true`;
+                  }}
+                />
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{contact.name}</h3>
-                  <p className="text-sm text-gray-500 truncate">
-                    {contact.phone || 'No phone number'}
+                  <h3 className="font-semibold text-gray-900 truncate">{request.user.name}</h3>
+                  <p className="text-xs text-gray-400">
+                    Sent {formatDistanceToNow(new Date(request.createdAt), { addSuffix: true })}
                   </p>
-                  <p className="text-xs text-gray-400">{getStatusLabel(contact.status, contact.lastSeen)}</p>
                 </div>
-
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={(e) => handleMessage(contact.id, e)}
-                    className="p-2 hover:bg-purple-50 rounded-full text-purple-600"
-                    title="Message"
+                    onClick={() => handleAcceptRequest(request)}
+                    disabled={pendingActionId === request.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-60"
                   >
-                    <MessageCircle size={18} />
+                    <Check size={13} /> Accept
                   </button>
                   <button
-                    onClick={(e) => handleAudioCall(contact, e)}
-                    className="p-2 hover:bg-green-50 rounded-full text-green-600"
-                    title="Audio Call"
+                    onClick={() => handleDeclineRequest(request)}
+                    disabled={pendingActionId === request.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 disabled:opacity-60"
                   >
-                    <Phone size={18} />
+                    <UserX size={13} /> Decline
                   </button>
-                  <button
-                    onClick={(e) => handleVideoCall(contact, e)}
-                    className="p-2 hover:bg-blue-50 rounded-full text-blue-600"
-                    title="Video Call"
-                  >
-                    <Video size={18} />
-                  </button>
-                  <div className="relative">
-                    <button
-                      onClick={(e) => handleMoreOptions(contact.id, e)}
-                      className="p-2 hover:bg-gray-100 rounded-full text-gray-600"
-                      title="More"
-                    >
-                      <MoreVertical size={18} />
-                    </button>
-
-                    {showOptions === contact.id && (
-                      <div className="absolute right-0 top-full mt-1 w-40 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
-                        <button
-                          onClick={(e) => handleViewProfile(contact, e)}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
-                        >
-                          View Profile
-                        </button>
-                        <button
-                          onClick={(e) => handleBlockContact(contact, e)}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
-                        >
-                          Block Contact
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteContact(contact, e)}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 text-red-600"
-                        >
-                          Delete Contact
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
             ))
@@ -332,7 +519,23 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
         </div>
       )}
 
-      {/* View Profile modal */}
+      {!loading && !error && activeTab === 'find' && (
+        <div className="flex-1 overflow-y-auto pb-20">
+          <div className="px-4 py-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              {filteredDiscoverUsers.length} People
+            </p>
+          </div>
+          {filteredDiscoverUsers.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-sm text-gray-500">No one new to find right now</p>
+            </div>
+          ) : (
+            filteredDiscoverUsers.map((contact) => renderContactRow(contact, false))
+          )}
+        </div>
+      )}
+
       {profileContact && (
         <div
           className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center px-4"

@@ -12,6 +12,7 @@ import authRoutes from './routes/auth';
 import userRoutes from './routes/users';
 import callRoutes from './routes/calls';
 import messageRoutes from './routes/messages';
+import friendRoutes from './routes/friends';
 import { User } from './models/User';
 import { Call } from './models/Call';
 import { Message } from './models/Message';
@@ -68,6 +69,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/friends', friendRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });
