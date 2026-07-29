@@ -99,11 +99,19 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const remoteUserIdRef = useRef<string | null>(null);
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
+  const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearDurationTimer = () => {
     if (durationTimerRef.current) {
       clearInterval(durationTimerRef.current);
       durationTimerRef.current = null;
+    }
+  };
+
+  const clearConnectTimeout = () => {
+    if (connectTimeoutRef.current) {
+      clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
     }
   };
 
@@ -115,6 +123,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pcRef.current = null;
     pendingCandidatesRef.current = [];
     clearDurationTimer();
+    clearConnectTimeout();
   }, [localStream]);
 
   const resetCallState = useCallback(() => {
@@ -137,8 +146,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
     (targetUserId: string) => {
       const pc = new RTCPeerConnection(ICE_SERVERS);
 
+      // Safety net: if the handshake hasn't produced a real connection within
+      // 20 seconds, stop hanging forever and fail the call visibly instead.
+      clearConnectTimeout();
+      connectTimeoutRef.current = setTimeout(() => {
+        if (pc.connectionState !== 'connected') {
+          console.error('[Call] Timed out waiting for connection. Last states:', {
+            connectionState: pc.connectionState,
+            iceConnectionState: pc.iceConnectionState,
+          });
+          endCallRef.current();
+        }
+      }, 20000);
+
       pc.onicecandidate = (event) => {
         if (event.candidate && socket) {
+          console.log('[Call] Sending ICE candidate:', event.candidate.type, event.candidate.protocol);
           socket.emit('webrtc:ice-candidate', {
             targetUserId,
             candidate: event.candidate,
@@ -154,12 +177,22 @@ export function CallProvider({ children }: { children: ReactNode }) {
       // caller and the callee rely on this rather than optimistically
       // assuming success right after signaling.
       pc.onconnectionstatechange = () => {
+        console.log('[Call] connectionState:', pc.connectionState);
         if (pc.connectionState === 'connected') {
+          clearConnectTimeout();
           setCallStatus('connected');
         }
         if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
           endCallRef.current();
         }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        console.log('[Call] iceConnectionState:', pc.iceConnectionState);
+      };
+
+      pc.onicegatheringstatechange = () => {
+        console.log('[Call] iceGatheringState:', pc.iceGatheringState);
       };
 
       pcRef.current = pc;
