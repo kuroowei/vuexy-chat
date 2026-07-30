@@ -53,10 +53,27 @@ export interface ICall extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
 export interface IFriendRequest extends Document {
   senderId: Types.ObjectId;
   recipientId: Types.ObjectId;
   status: 'pending' | 'accepted';
   createdAt: Date;
   respondedAt?: Date;
+}
+
+export interface IPostComment {
+  authorId: Types.ObjectId;
+  text: string;
+  createdAt: Date;
+}
+
+export interface IPost extends Document {
+  authorId: Types.ObjectId;
+  content: string;
+  imageUrl?: string;
+  likes: Types.ObjectId[];
+  comments: IPostComment[];
+  createdAt: Date;
+  updatedAt: Date;
 }

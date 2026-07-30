@@ -10,8 +10,9 @@ import ContactsPage from '../Pages/ContactsPage';
 import CallsPage from '../Pages/CallsPage';
 import SettingsHubPage from '../Pages/SettingsHubPage';
 import ProfileViewPage from '../Pages/ProfileViewPage';
+import FeedPage from '../Pages/FeedPage';
 
-type MobileView = 'chat' | 'contacts' | 'calls' | 'settings' | 'profile';
+type MobileView = 'chat' | 'contacts' | 'calls' | 'settings' | 'profile' | 'feed';
 
 export default function AppLayout() {
   const location = useLocation();
@@ -29,6 +30,7 @@ export default function AppLayout() {
     else if (path === '/calls') setMobileView('calls');
     else if (path === '/settings') setMobileView('settings');
     else if (path === '/profile') setMobileView('profile');
+    else if (path === '/feed') setMobileView('feed');
     else setMobileView('chat');
   }, [location.pathname]);
 
@@ -131,6 +133,16 @@ export default function AppLayout() {
         </div>
       );
     }
+    if (mobileView === 'feed') {
+      return (
+        <div className="h-screen flex bg-gray-50 overflow-hidden">
+          <Sidebar />
+          <div className="flex-1 h-full">
+            <FeedPage />
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="h-screen flex bg-gray-50 overflow-hidden">
         <Sidebar />
@@ -157,6 +169,7 @@ export default function AppLayout() {
   const showCallsPage = mobileView === 'calls';
   const showSettingsPage = mobileView === 'settings';
   const showProfilePage = mobileView === 'profile';
+  const showFeedPage = mobileView === 'feed';
 
   return (
     <div className="h-screen flex bg-gray-50 overflow-hidden relative">
@@ -211,13 +224,19 @@ export default function AppLayout() {
         </div>
       )}
 
+      {showFeedPage && (
+        <div className="flex-1 h-full pb-mobile-nav">
+          <FeedPage />
+        </div>
+      )}
+
       <MobileNav
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         onToggleChat={handleToggleChat}
         onToggleContacts={handleToggleContacts}
         onToggleCalls={handleToggleCalls}
         onToggleSettings={handleToggleSettings}
-        activeView={mobileView === 'profile' ? 'settings' : mobileView}
+        activeView={mobileView === 'profile' || mobileView === 'feed' ? 'settings' : mobileView}
         sidebarOpen={sidebarOpen}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ProfileDropdown } from '@/components/UI/ProfileDropdown';
 import { 
@@ -8,6 +8,7 @@ import {
   Truck, 
   Mail, 
   MessageSquare, 
+  Newspaper,
   Calendar, 
   FileText, 
   Users, 
@@ -32,6 +33,7 @@ const mainNavItems = [
   { icon: <Truck size={18} />, label: 'Logistics', path: '/logistics' },
   { icon: <Mail size={18} />, label: 'Email', path: '/email' },
   { icon: <MessageSquare size={18} />, label: 'Chat', path: '/chat', badge: 2 },
+  { icon: <Newspaper size={18} />, label: 'Feed', path: '/feed' },
   { icon: <Users size={18} />, label: 'Contacts', path: '/contacts' },
   { icon: <Phone size={18} />, label: 'Calls', path: '/calls' },
   { icon: <Calendar size={18} />, label: 'Calendar', path: '/calendar' },

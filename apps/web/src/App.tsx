@@ -27,7 +27,8 @@ function App() {
               <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-              <Route path="/chat" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
+              <Route path="/chat" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} /> 
+              <Route path="/feed" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
               <Route path="/contacts" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
               <Route path="/calls" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />
