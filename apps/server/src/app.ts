@@ -234,8 +234,12 @@ io.on('connection', (socket) => {
 
   socket.on('call:accept', async ({ callId }: { callId: string }) => {
     try {
+      console.log('[Call] Received call:accept for callId:', callId, 'from user:', userId);
       const call = await Call.findById(callId);
-      if (!call) return;
+      if (!call) {
+        console.log('[Call] No Call document found for callId:', callId);
+        return;
+      }
 
       call.status = 'accepted';
       call.acceptedAt = new Date();
@@ -244,8 +248,12 @@ io.on('connection', (socket) => {
       ringingCallsByCallee.delete(call.calleeId.toString());
 
       const callerSocketId = userSockets.get(call.callerId.toString());
+      console.log('[Call] Looking up caller socket for callerId:', call.callerId.toString(), '-> found:', callerSocketId);
       if (callerSocketId) {
         io.to(callerSocketId).emit('call:accepted', { callId });
+        console.log('[Call] Emitted call:accepted to socket:', callerSocketId);
+      } else {
+        console.log('[Call] Caller socket not found in userSockets map — cannot relay call:accepted');
       }
     } catch (err) {
       console.error('call:accept error:', err);
