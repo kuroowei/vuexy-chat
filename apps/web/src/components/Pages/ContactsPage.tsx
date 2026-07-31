@@ -24,6 +24,12 @@ interface FriendRequestItem {
   createdAt: string;
 }
 
+interface FollowSummary {
+  followerCount: number;
+  followingCount: number;
+  isFollowedByMe: boolean;
+}
+
 const getAvatarUrl = (name: string, existingAvatar: string): string => {
   if (existingAvatar && existingAvatar.trim() !== '') {
     if (existingAvatar.startsWith('http') || existingAvatar.startsWith('data:')) {
@@ -68,6 +74,10 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
   const [profileContact, setProfileContact] = useState<Contact | null>(null);
   const [actionError, setActionError] = useState('');
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+
+  const [followSummary, setFollowSummary] = useState<FollowSummary | null>(null);
+  const [loadingFollow, setLoadingFollow] = useState(false);
+  const [togglingFollow, setTogglingFollow] = useState(false);
 
   const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
@@ -157,10 +167,61 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
     setShowOptions(showOptions === contactId ? null : contactId);
   };
 
+  const fetchFollowSummary = async (contactId: string) => {
+    setLoadingFollow(true);
+    setFollowSummary(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/follows/${contactId}/summary`, { headers: authHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to load follow info');
+      setFollowSummary({
+        followerCount: data.followerCount,
+        followingCount: data.followingCount,
+        isFollowedByMe: data.isFollowedByMe,
+      });
+    } catch (err) {
+      console.error('Error fetching follow summary:', err);
+    } finally {
+      setLoadingFollow(false);
+    }
+  };
+
   const handleViewProfile = (contact: Contact, e: React.MouseEvent) => {
     e.stopPropagation();
     setShowOptions(null);
     setProfileContact(contact);
+    fetchFollowSummary(contact.id);
+  };
+
+  const handleToggleFollow = async () => {
+    if (!profileContact || !followSummary) return;
+    setTogglingFollow(true);
+    const wasFollowing = followSummary.isFollowedByMe;
+
+    // Optimistic update
+    setFollowSummary({
+      ...followSummary,
+      isFollowedByMe: !wasFollowing,
+      followerCount: followSummary.followerCount + (wasFollowing ? -1 : 1),
+    });
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/follows/${profileContact.id}`, {
+        method: wasFollowing ? 'DELETE' : 'POST',
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to update follow status');
+    } catch (err) {
+      console.error('Error toggling follow:', err);
+      // Revert on failure
+      setFollowSummary({
+        ...followSummary,
+        isFollowedByMe: wasFollowing,
+        followerCount: followSummary.followerCount,
+      });
+    } finally {
+      setTogglingFollow(false);
+    }
   };
 
   const handleBlockContact = async (contact: Contact, e: React.MouseEvent) => {
@@ -566,6 +627,31 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
               <p className="text-xs text-gray-400 mt-1">
                 {getStatusLabel(profileContact.status, profileContact.lastSeen)}
               </p>
+
+              {loadingFollow ? (
+                <div className="flex items-center gap-1.5 mt-3">
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-purple-400" />
+                </div>
+              ) : followSummary ? (
+                <>
+                  <div className="flex items-center gap-4 mt-3 text-sm">
+                    <span className="text-gray-700"><strong className="text-gray-900">{followSummary.followerCount}</strong> followers</span>
+                    <span className="text-gray-700"><strong className="text-gray-900">{followSummary.followingCount}</strong> following</span>
+                  </div>
+                  <button
+                    onClick={handleToggleFollow}
+                    disabled={togglingFollow}
+                    className={
+                      'mt-3 px-5 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-60 ' +
+                      (followSummary.isFollowedByMe
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-purple-600 text-white hover:bg-purple-700')
+                    }
+                  >
+                    {followSummary.isFollowedByMe ? 'Following' : 'Follow'}
+                  </button>
+                </>
+              ) : null}
 
               <div className="flex gap-3 mt-6 w-full">
                 <button

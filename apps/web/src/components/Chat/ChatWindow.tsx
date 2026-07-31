@@ -24,6 +24,12 @@ const getAvatarUrl = (name: string, existingAvatar: string): string => {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=7c3aed&color=fff&size=128&bold=true`;
 };
 
+interface FollowSummary {
+  followerCount: number;
+  followingCount: number;
+  isFollowedByMe: boolean;
+}
+
 interface ChatWindowProps {
   contactId: string | null;
   onBack: () => void;
@@ -46,6 +52,9 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [followSummary, setFollowSummary] = useState<FollowSummary | null>(null);
+  const [loadingFollow, setLoadingFollow] = useState(false);
+  const [togglingFollow, setTogglingFollow] = useState(false);
 
   // Fetch real contact data
   useEffect(() => {
@@ -253,6 +262,57 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     }
   };
 
+  const handleOpenProfile = () => {
+    setShowMenu(false);
+    setShowProfile(true);
+    if (!contactId) return;
+
+    setLoadingFollow(true);
+    setFollowSummary(null);
+    const token = localStorage.getItem('token');
+    fetch(`${API_BASE}/follows/${contactId}/summary`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => res.json())
+      .then((data) =>
+        setFollowSummary({
+          followerCount: data.followerCount,
+          followingCount: data.followingCount,
+          isFollowedByMe: data.isFollowedByMe,
+        })
+      )
+      .catch((err) => console.error('Error fetching follow summary:', err))
+      .finally(() => setLoadingFollow(false));
+  };
+
+  const handleToggleFollow = async () => {
+    if (!followSummary || !contactId) return;
+    setTogglingFollow(true);
+    const wasFollowing = followSummary.isFollowedByMe;
+
+    setFollowSummary({
+      ...followSummary,
+      isFollowedByMe: !wasFollowing,
+      followerCount: followSummary.followerCount + (wasFollowing ? -1 : 1),
+    });
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_BASE}/follows/${contactId}`, {
+        method: wasFollowing ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to update follow status');
+    } catch (err) {
+      console.error('Error toggling follow:', err);
+      setFollowSummary({
+        ...followSummary,
+        isFollowedByMe: wasFollowing,
+        followerCount: followSummary.followerCount,
+      });
+    } finally {
+      setTogglingFollow(false);
+    }
+  };
+
   if (!contactId) return <EmptyState />;
 
   const headerAvatar = headerImgError
@@ -273,7 +333,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
           </button>
           <button
             className="flex items-center gap-3 min-w-0"
-            onClick={() => setShowProfile(true)}
+            onClick={handleOpenProfile}
           >
             <div className="relative flex-shrink-0">
               <img
@@ -307,7 +367,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-lg border border-gray-100 z-50 py-1">
                 <button
-                  onClick={() => { setShowMenu(false); setShowProfile(true); }}
+                  onClick={handleOpenProfile}
                   className="w-full flex items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-50 text-gray-700"
                 >
                   <User size={15} /> View Contact
@@ -431,6 +491,30 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
               />
               <h2 className="text-xl font-bold text-gray-900">{contact.name}</h2>
               <p className="text-sm text-gray-500 mt-1">{contact.status === 'online' ? 'Online' : 'Offline'}</p>
+
+              {loadingFollow ? (
+                <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-purple-400 mt-3" />
+              ) : followSummary ? (
+                <>
+                  <div className="flex items-center gap-4 mt-3 text-sm">
+                    <span className="text-gray-700"><strong className="text-gray-900">{followSummary.followerCount}</strong> followers</span>
+                    <span className="text-gray-700"><strong className="text-gray-900">{followSummary.followingCount}</strong> following</span>
+                  </div>
+                  <button
+                    onClick={handleToggleFollow}
+                    disabled={togglingFollow}
+                    className={
+                      'mt-3 px-5 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-60 ' +
+                      (followSummary.isFollowedByMe
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        : 'bg-purple-600 text-white hover:bg-purple-700')
+                    }
+                  >
+                    {followSummary.isFollowedByMe ? 'Following' : 'Follow'}
+                  </button>
+                </>
+              ) : null}
+
               <div className="flex gap-3 mt-6 w-full">
                 <button
                   onClick={() => { handleAudioCall(); setShowProfile(false); }}

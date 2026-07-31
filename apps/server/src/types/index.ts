@@ -77,3 +77,8 @@ export interface IPost extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+export interface IFollow extends Document {
+  followerId: Types.ObjectId;
+  followingId: Types.ObjectId;
+  createdAt: Date;
+}
