@@ -224,11 +224,16 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
   };
 
+  const handleDeleteMessageForMe = (messageId: string) => {
+    if (!socket) return;
+    socket.emit('delete_message_for_me', { messageId });
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  };
+
   const handleAudioCall = () => {
     if (!contact) return;
     startCall(contact.id, contact.name, contact.avatar, 'audio');
   };
-
   const handleVideoCall = () => {
     if (!contact) return;
     startCall(contact.id, contact.name, contact.avatar, 'video');
@@ -447,7 +452,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
           )}
 
           {filteredMessages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === user?.id} onDelete={handleDeleteMessage} />
+            <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === user?.id} onDelete={handleDeleteMessage} onDeleteForMe={handleDeleteMessageForMe} />
           ))}
 
           {/* Voice recording indicator */}

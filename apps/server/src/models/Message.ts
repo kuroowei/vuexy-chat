@@ -11,6 +11,7 @@ const MessageSchema = new Schema<IMessage>(
     fileUrl: { type: String },
     status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
     replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
+    deletedFor: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
   { timestamps: true }
 );

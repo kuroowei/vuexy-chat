@@ -6,6 +6,7 @@ interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   onDelete?: (messageId: string) => void;
+  onDeleteForMe?: (messageId: string) => void;
 }
 
 const statusIcons = {
@@ -14,20 +15,29 @@ const statusIcons = {
   read: <CheckCheck size={14} className="text-blue-400" />,
 };
 
-export default function MessageBubble({ message, isOwn, onDelete }: MessageBubbleProps) {
+export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe }: MessageBubbleProps) {
   const handleDeleteClick = () => {
-    if (!onDelete) return;
-    if (window.confirm('Delete this message? This cannot be undone.')) {
-      onDelete(message.id);
+    if (isOwn) {
+      if (!onDelete) return;
+      if (window.confirm('Delete this message? This cannot be undone.')) {
+        onDelete(message.id);
+      }
+    } else {
+      if (!onDeleteForMe) return;
+      if (window.confirm('Remove this message from your chat? Only visible to you — the other person will still see it.')) {
+        onDeleteForMe(message.id);
+      }
     }
   };
 
+  const canDelete = isOwn ? !!onDelete : !!onDeleteForMe;
+
   const DeleteButton = () =>
-    isOwn && onDelete ? (
+    canDelete ? (
       <button
         onClick={handleDeleteClick}
         className="text-gray-300 hover:text-red-500 transition-colors"
-        title="Delete message"
+        title={isOwn ? 'Delete message' : 'Remove from your chat'}
       >
         <Trash2 size={12} />
       </button>
@@ -126,7 +136,7 @@ export default function MessageBubble({ message, isOwn, onDelete }: MessageBubbl
           <p>{message.content}</p>
         </div>
         <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
-          <DeleteButton/>
+          <DeleteButton />
           <span className="text-[10px] text-gray-400">
             {format(new Date(message.timestamp), 'h:mm a')}
           </span>

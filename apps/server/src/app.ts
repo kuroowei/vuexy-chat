@@ -171,6 +171,25 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('delete_message_for_me', async ({ messageId }: { messageId: string }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      // Only the sender or recipient of this specific message may hide it
+      const isParticipant =
+        message.senderId.toString() === userId || message.recipientId.toString() === userId;
+      if (!isParticipant) return;
+
+      await Message.findByIdAndUpdate(messageId, { $addToSet: { deletedFor: userId } });
+
+      // Only the requesting user's own view changes — no need to notify the other party
+      socket.emit('message_deleted', { messageId });
+    } catch (err) {
+      console.error('delete_message_for_me error:', err);
+    }
+  });
+
   socket.on('send_message', async (data: any) => {
     try {
       const { recipientId, content, type, fileUrl } = data;

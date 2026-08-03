@@ -123,10 +123,13 @@ router.get('/:contactId', async (req: AuthRequest, res: Response) => {
 
     const conversation = await findOrCreateConversation(userId, contactId);
 
-    const messages = await Message.find({ conversationId: conversation._id })
+    const messages = await Message.find({
+      conversationId: conversation._id,
+      deletedFor: { $ne: userId },
+    })
       .sort({ createdAt: 1 })
       .limit(200);
-
+      
     res.json({
       conversationId: conversation._id.toString(),
       messages: messages.map(toMessageResponse),

@@ -26,6 +26,7 @@ export interface IMessage extends Document {
   fileUrl?: string;
   status: 'sent' | 'delivered' | 'read';
   replyTo?: Types.ObjectId;
+  deletedFor: Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
