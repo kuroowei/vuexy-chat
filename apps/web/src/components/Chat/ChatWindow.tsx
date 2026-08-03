@@ -174,16 +174,22 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
       setContact((prev) => (prev ? { ...prev, status } : prev));
     };
 
+    const handleMessageDeleted = ({ messageId }: any) => {
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('typing', handleTypingEvent);
     socket.on('voice_recording', handleRecordingEvent);
     socket.on('user:status', handleStatusChange);
+    socket.on('message_deleted', handleMessageDeleted);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('typing', handleTypingEvent);
       socket.off('voice_recording', handleRecordingEvent);
       socket.off('user:status', handleStatusChange);
+      socket.off('message_deleted', handleMessageDeleted);
     };
   }, [socket, contactId, user?.id]);
 
@@ -207,9 +213,15 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     socket.emit('typing', { contactId, isTyping: typing });
   };
 
-  const handleRecordingChange = (recording: boolean) => {
+ const handleRecordingChange = (recording: boolean) => {
     if (!socket || !contactId) return;
     socket.emit('voice_recording', { contactId, isRecording: recording });
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    if (!socket) return;
+    socket.emit('delete_message', { messageId });
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
   };
 
   const handleAudioCall = () => {
@@ -435,7 +447,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
           )}
 
           {filteredMessages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === user?.id} />
+            <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === user?.id} onDelete={handleDeleteMessage} />
           ))}
 
           {/* Voice recording indicator */}

@@ -152,6 +152,25 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('delete_message', async ({ messageId }: { messageId: string }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+      if (message.senderId.toString() !== userId) return; // only the sender can delete
+
+      const recipientId = message.recipientId.toString();
+      await message.deleteOne();
+
+      socket.emit('message_deleted', { messageId });
+      const recipientSocketId = userSockets.get(recipientId);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('message_deleted', { messageId });
+      }
+    } catch (err) {
+      console.error('delete_message error:', err);
+    }
+  });
+
   socket.on('send_message', async (data: any) => {
     try {
       const { recipientId, content, type, fileUrl } = data;

@@ -1,10 +1,11 @@
 import { format } from 'date-fns';
-import { Check, CheckCheck } from 'lucide-react';
+import { Check, CheckCheck, Trash2 } from 'lucide-react';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
+  onDelete?: (messageId: string) => void;
 }
 
 const statusIcons = {
@@ -13,7 +14,25 @@ const statusIcons = {
   read: <CheckCheck size={14} className="text-blue-400" />,
 };
 
-export default function MessageBubble({ message, isOwn }: MessageBubbleProps) {
+export default function MessageBubble({ message, isOwn, onDelete }: MessageBubbleProps) {
+  const handleDeleteClick = () => {
+    if (!onDelete) return;
+    if (window.confirm('Delete this message? This cannot be undone.')) {
+      onDelete(message.id);
+    }
+  };
+
+  const DeleteButton = () =>
+    isOwn && onDelete ? (
+      <button
+        onClick={handleDeleteClick}
+        className="text-gray-300 hover:text-red-500 transition-colors"
+        title="Delete message"
+      >
+        <Trash2 size={12} />
+      </button>
+    ) : null;
+
   // For image messages
   if (message.type === 'image' && message.fileUrl) {
     return (
@@ -31,7 +50,8 @@ export default function MessageBubble({ message, isOwn }: MessageBubbleProps) {
               }}
             />
           </div>
-          <div className={'flex items-center gap-1 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+          <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+            <DeleteButton />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -50,7 +70,8 @@ export default function MessageBubble({ message, isOwn }: MessageBubbleProps) {
           <div className={'px-3 py-2.5 rounded-xl shadow-sm border ' + (isOwn ? 'bg-purple-600 border-purple-500' : 'bg-white border-gray-100')}>
             <audio controls src={message.fileUrl} style={{ width: '100%', height: '36px' }} />
           </div>
-          <div className={'flex items-center gap-1 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+          <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+            <DeleteButton />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -79,7 +100,8 @@ export default function MessageBubble({ message, isOwn }: MessageBubbleProps) {
               </div>
             </a>
           </div>
-          <div className={'flex items-center gap-1 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+          <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+            <DeleteButton />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -103,7 +125,8 @@ export default function MessageBubble({ message, isOwn }: MessageBubbleProps) {
         >
           <p>{message.content}</p>
         </div>
-        <div className={'flex items-center gap-1 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+        <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+          <DeleteButton/>
           <span className="text-[10px] text-gray-400">
             {format(new Date(message.timestamp), 'h:mm a')}
           </span>
