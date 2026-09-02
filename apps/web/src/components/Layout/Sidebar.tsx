@@ -2,53 +2,19 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { ProfileDropdown } from '@/components/UI/ProfileDropdown';
 import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  GraduationCap, 
-  Truck, 
-  Mail, 
   MessageSquare, 
   Newspaper,
-  Calendar, 
-  FileText, 
   Users, 
-  Shield, 
-  File, 
-  Lock, 
-  Wand2, 
-  AlertTriangle,
-  Type,
-  Image,
-  ChevronRight,
-  LogOut,
   Phone,
-  Settings
+  Settings,
+  LogOut
 } from 'lucide-react';
 
 const mainNavItems = [
-  { icon: <LayoutDashboard size={18} />, label: 'Dashboards', path: '/dashboards', badge: 5 },
-  { icon: <FileText size={18} />, label: 'Front Pages', path: '/front-pages' },
-  { icon: <ShoppingCart size={18} />, label: 'Ecommerce', path: '/ecommerce' },
-  { icon: <GraduationCap size={18} />, label: 'Academy', path: '/academy' },
-  { icon: <Truck size={18} />, label: 'Logistics', path: '/logistics' },
-  { icon: <Mail size={18} />, label: 'Email', path: '/email' },
   { icon: <MessageSquare size={18} />, label: 'Chat', path: '/chat', badge: 2 },
   { icon: <Newspaper size={18} />, label: 'Feed', path: '/feed' },
   { icon: <Users size={18} />, label: 'Contacts', path: '/contacts' },
   { icon: <Phone size={18} />, label: 'Calls', path: '/calls' },
-  { icon: <Calendar size={18} />, label: 'Calendar', path: '/calendar' },
-  { icon: <FileText size={18} />, label: 'Invoice', path: '/invoice' },
-  { icon: <Users size={18} />, label: 'User', path: '/user' },
-  { icon: <Shield size={18} />, label: 'Roles & Permissions', path: '/roles' },
-  { icon: <File size={18} />, label: 'Pages', path: '/pages' },
-  { icon: <Lock size={18} />, label: 'Authentication', path: '/auth' },
-  { icon: <Wand2 size={18} />, label: 'Wizard Examples', path: '/wizard' },
-  { icon: <AlertTriangle size={18} />, label: 'Modal Examples', path: '/modal' },
-];
-
-const uiElements = [
-  { icon: <Type size={18} />, label: 'Typography', path: '/typography' },
-  { icon: <Image size={18} />, label: 'Icons', path: '/icons' },
 ];
 
 const settingsItems = [
@@ -76,67 +42,32 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto py-4 px-3">
         {mainNavItems.map((item) => (
-          item.label === 'Front Pages' ? (
-            <div
-              key={item.path}
-              onMouseEnter={() => setHoveredItem('Front Pages')}
-              onMouseLeave={() => setHoveredItem(null)}
-              className={
-                'flex items-center px-3 py-2.5 rounded-lg mb-1 cursor-pointer transition-colors relative select-none ' +
-                (hoveredItem === 'Front Pages' ? 'bg-purple-600 text-white' : 'text-gray-600')
-              }
-            >
-              <span className="mr-3">{item.icon}</span>
-              <span className="flex-1 text-sm font-medium">{item.label}</span>
-            </div>
-          ) : (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onMouseEnter={() => setHoveredItem(item.label)}
-              onMouseLeave={() => setHoveredItem(null)}
-              className={() =>
-                'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors relative ' +
-                (hoveredItem === item.label ? 'bg-purple-600 text-white' : 'text-gray-600')
-              }
-            >
-              <span className="mr-3">{item.icon}</span>
-              <span className="flex-1 text-sm font-medium">{item.label}</span>
-              {item.badge && (
-                <span className={'text-xs px-2 py-0.5 rounded-full ' +
-                  (item.path === '/chat' ? 'bg-purple-600 text-white' : 'bg-red-500 text-white')
-                }>
-                  {item.badge}
-                </span>
-              )}
-              {item.label === 'Dashboards' && <ChevronRight size={14} />}
-            </NavLink>
-          )
-        ))}
-
-        <div className="mt-6 mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Settings
-        </div>
-        {settingsItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             onMouseEnter={() => setHoveredItem(item.label)}
             onMouseLeave={() => setHoveredItem(null)}
             className={() =>
-              'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors ' +
+              'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors relative ' +
               (hoveredItem === item.label ? 'bg-purple-600 text-white' : 'text-gray-600')
             }
           >
             <span className="mr-3">{item.icon}</span>
-            <span className="text-sm font-medium">{item.label}</span>
+            <span className="flex-1 text-sm font-medium">{item.label}</span>
+            {item.badge && (
+              <span className={'text-xs px-2 py-0.5 rounded-full ' +
+                (item.path === '/chat' ? 'bg-purple-600 text-white' : 'bg-red-500 text-white')
+              }>
+                {item.badge}
+              </span>
+            )}
           </NavLink>
         ))}
 
         <div className="mt-6 mb-2 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          UI Elements
+          Settings
         </div>
-        {uiElements.map((item) => (
+        {settingsItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
