@@ -123,7 +123,7 @@ router.post('/register', upload.single('avatar'), async (req: Request, res: Resp
   }
 });
 
-// Login route
+/// Login route
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -134,12 +134,12 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const token = jwt.sign(
@@ -157,7 +157,6 @@ router.post('/login', async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 // Update profile with avatar (POST to match frontend AuthContext)
 router.post('/update-profile', upload.single('avatar'), async (req: Request, res: Response) => {
   try {

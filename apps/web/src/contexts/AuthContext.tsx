@@ -1,5 +1,6 @@
 ﻿import { createContext, useState, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 
 export interface User {
   id: string;
@@ -63,23 +64,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(API_URL + '/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Login failed');
-      localStorage.setItem('token', data.token);
-      setToken(data.token);
-      setUser(data.user);
-      console.log('Login successful, navigating to /chat');
-      navigate('/chat');
-    } finally {
-      setIsLoading(false);
-    }
+    const res = await fetch(API_URL + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Login failed');
+    localStorage.setItem('token', data.token);
+    setToken(data.token);
+    setUser(data.user);
+    Swal.fire({
+      icon: 'success',
+      title: 'Login Successful!',
+      text: `Welcome back, ${data.user.name}!`,
+      timer: 1800,
+      showConfirmButton: false,
+    });
+    navigate('/chat');
   };
 
   const updateProfile = async (name?: string, avatar?: string | File, phone?: string) => {
@@ -136,7 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     avatar?: File | null
   ) => {
-    setIsLoading(true);
     try {
       const formData = new FormData();
       formData.append('name', name);
@@ -163,8 +164,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       console.error('Registration error:', error);
       throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 

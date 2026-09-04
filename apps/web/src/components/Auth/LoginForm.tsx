@@ -8,13 +8,20 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const { login, isLoading } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    try { await login(email, password); }
-    catch (err: any) { setError(err.message || 'Invalid email or password'); }
+    setSubmitting(true);
+    try {
+      await login(email, password);
+    } catch (err: any) {
+      setError(err.message || 'Invalid email or password');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -46,9 +53,9 @@ export default function LoginForm() {
         </label>
         <Link to="/forgot-password" className="text-sm text-purple-600 hover:text-purple-700 font-medium">Forgot password?</Link>
       </div>
-      <button type="submit" disabled={isLoading}
+      <button type="submit" disabled={submitting}
         className="w-full flex items-center justify-center gap-2 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-        {isLoading ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Sign In<ArrowRight size={18} /></>}
+        {submitting ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Sign In<ArrowRight size={18} /></>}
       </button>
       <p className="text-center text-sm text-gray-600">Don't have an account? <Link to="/register" className="text-purple-600 hover:text-purple-700 font-medium">Create an account</Link></p>
     </form>

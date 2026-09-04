@@ -16,7 +16,8 @@ export default function RegisterForm() {
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { register, isLoading } = useAuth();
+  const { register } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
 
   const passwordStrength = () => {
     let score = 0;
@@ -75,10 +76,13 @@ export default function RegisterForm() {
       return;
     }
 
+    setSubmitting(true);
     try {
       await register(name, email, phone, password, avatar);
     } catch (err: any) {
       setError(err.message || 'Registration failed');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -205,8 +209,8 @@ export default function RegisterForm() {
           </label>
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep(1)} className="flex-1 py-2.5 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-all">Back</button>
-            <button type="submit" disabled={isLoading} className="flex-[2] flex items-center justify-center gap-2 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 transition-all disabled:opacity-50">
-              {isLoading ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Create Account<ArrowRight size={18} /></>}
+            <button type="submit" disabled={submitting} className="flex-[2] flex items-center justify-center gap-2 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 transition-all disabled:opacity-50">
+              {submitting ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <>Create Account<ArrowRight size={18} /></>}
             </button>
           </div>
         </>
