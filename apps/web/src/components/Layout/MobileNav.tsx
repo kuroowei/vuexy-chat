@@ -1,9 +1,10 @@
-import { MessageSquare, Users, Phone, Settings, Menu, X, MoreVertical } from 'lucide-react';
+import { MessageSquare, Newspaper, Users, Phone, Settings, Menu, X, MoreVertical } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 interface MobileNavProps {
   onToggleSidebar: () => void;
   onToggleChat: () => void;
+  onToggleFeed: () => void;
   onToggleContacts: () => void;
   onToggleCalls: () => void;
   onToggleSettings: () => void;
@@ -14,6 +15,7 @@ interface MobileNavProps {
 export default function MobileNav({
   onToggleSidebar,
   onToggleChat,
+  onToggleFeed,
   onToggleContacts,
   onToggleCalls,
   onToggleSettings,
@@ -36,6 +38,7 @@ export default function MobileNav({
 
   const navItems = [
     { id: 'chat', icon: MessageSquare, label: 'Chat', onClick: onToggleChat },
+    { id: 'feed', icon: Newspaper, label: 'Feed', onClick: onToggleFeed },
     { id: 'contacts', icon: Users, label: 'Contacts', onClick: onToggleContacts },
     { id: 'calls', icon: Phone, label: 'Calls', onClick: onToggleCalls },
     { id: 'settings', icon: Settings, label: 'Settings', onClick: onToggleSettings },

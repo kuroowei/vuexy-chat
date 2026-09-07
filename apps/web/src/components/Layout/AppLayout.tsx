@@ -70,6 +70,11 @@ export default function AppLayout() {
     setActiveContact(null);
   };
 
+  const handleToggleFeed = () => {
+    setMobileView('feed');
+    setActiveContact(null);
+  };
+
   const handleToggleContacts = () => {
     setMobileView('contacts');
     setActiveContact(null);
@@ -233,10 +238,11 @@ export default function AppLayout() {
       <MobileNav
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         onToggleChat={handleToggleChat}
+        onToggleFeed={handleToggleFeed}
         onToggleContacts={handleToggleContacts}
         onToggleCalls={handleToggleCalls}
         onToggleSettings={handleToggleSettings}
-        activeView={mobileView === 'profile' || mobileView === 'feed' ? 'settings' : mobileView}
+        activeView={mobileView === 'profile' ? 'settings' : mobileView}
         sidebarOpen={sidebarOpen}
       />
     </div>
