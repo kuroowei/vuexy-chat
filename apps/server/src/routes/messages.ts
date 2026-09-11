@@ -78,6 +78,10 @@ const toMessageResponse = (message: any) => ({
   fileUrl: message.fileUrl,
   status: message.status,
   replyTo: message.replyTo ? message.replyTo.toString() : undefined,
+  reactions: (message.reactions || []).map((r: any) => ({
+    userId: r.userId.toString(),
+    emoji: r.emoji,
+  })),
   createdAt: message.createdAt,
 });
 

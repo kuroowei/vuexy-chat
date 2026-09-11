@@ -12,6 +12,12 @@ const MessageSchema = new Schema<IMessage>(
     status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
     replyTo: { type: Schema.Types.ObjectId, ref: 'Message' },
     deletedFor: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    reactions: [
+      {
+        userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+        emoji: { type: String, required: true },
+      },
+    ],
   },
   { timestamps: true }
 );

@@ -74,6 +74,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/follows', followRoutes);
+
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });
 });
@@ -187,6 +188,42 @@ io.on('connection', (socket) => {
       socket.emit('message_deleted', { messageId });
     } catch (err) {
       console.error('delete_message_for_me error:', err);
+    }
+  });
+
+  socket.on('react_to_message', async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+    try {
+      const message = await Message.findById(messageId);
+      if (!message) return;
+
+      const isParticipant =
+        message.senderId.toString() === userId || message.recipientId.toString() === userId;
+      if (!isParticipant) return;
+
+      const existingIndex = message.reactions.findIndex((r: any) => r.userId.toString() === userId);
+
+      if (existingIndex !== -1 && message.reactions[existingIndex].emoji === emoji) {
+        // Tapping the same emoji again removes it
+        message.reactions.splice(existingIndex, 1);
+      } else if (existingIndex !== -1) {
+        // Switching to a different emoji replaces the old one
+        message.reactions[existingIndex].emoji = emoji;
+      } else {
+        message.reactions.push({ userId, emoji } as any);
+      }
+
+      await message.save();
+
+      const payload = { messageId, reactions: message.reactions };
+      socket.emit('message_reaction_updated', payload);
+      const otherUserId =
+        message.senderId.toString() === userId ? message.recipientId.toString() : message.senderId.toString();
+      const otherSocketId = userSockets.get(otherUserId);
+      if (otherSocketId) {
+        io.to(otherSocketId).emit('message_reaction_updated', payload);
+      }
+    } catch (err) {
+      console.error('react_to_message error:', err);
     }
   });
 

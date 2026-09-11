@@ -17,6 +17,11 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
+export interface IMessageReaction {
+  userId: Types.ObjectId;
+  emoji: string;
+}
+
 export interface IMessage extends Document {
   conversationId: Types.ObjectId;
   senderId: Types.ObjectId;
@@ -27,6 +32,7 @@ export interface IMessage extends Document {
   status: 'sent' | 'delivered' | 'read';
   replyTo?: Types.ObjectId;
   deletedFor: Types.ObjectId[];
+  reactions: IMessageReaction[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -78,6 +84,7 @@ export interface IPost extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
 export interface IFollow extends Document {
   followerId: Types.ObjectId;
   followingId: Types.ObjectId;
