@@ -116,6 +116,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             status: m.status,
             timestamp: m.createdAt,
             fileUrl: m.fileUrl,
+            reactions: m.reactions || [],
           }));
           setMessages(mapped);
         }
@@ -149,6 +150,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
         status: payload.status,
         timestamp: payload.createdAt,
         fileUrl: payload.fileUrl,
+        reactions: [],
       };
 
       setMessages((prev) => {
@@ -178,11 +180,16 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
       setMessages((prev) => prev.filter((m) => m.id !== messageId));
     };
 
+    const handleReactionUpdated = ({ messageId, reactions }: any) => {
+      setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, reactions } : m)));
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('typing', handleTypingEvent);
     socket.on('voice_recording', handleRecordingEvent);
     socket.on('user:status', handleStatusChange);
     socket.on('message_deleted', handleMessageDeleted);
+    socket.on('message_reaction_updated', handleReactionUpdated);
 
     return () => {
       socket.off('new_message', handleNewMessage);
@@ -190,6 +197,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
       socket.off('voice_recording', handleRecordingEvent);
       socket.off('user:status', handleStatusChange);
       socket.off('message_deleted', handleMessageDeleted);
+      socket.off('message_reaction_updated', handleReactionUpdated);
     };
   }, [socket, contactId, user?.id]);
 
@@ -228,6 +236,11 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
     if (!socket) return;
     socket.emit('delete_message_for_me', { messageId });
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  };
+
+  const handleReactToMessage = (messageId: string, emoji: string) => {
+    if (!socket) return;
+    socket.emit('react_to_message', { messageId, emoji });
   };
 
   const handleAudioCall = () => {
@@ -452,7 +465,15 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
           )}
 
           {filteredMessages.map((msg) => (
-            <MessageBubble key={msg.id} message={msg} isOwn={msg.senderId === user?.id} onDelete={handleDeleteMessage} onDeleteForMe={handleDeleteMessageForMe} />
+            <MessageBubble
+              key={msg.id}
+              message={msg}
+              isOwn={msg.senderId === user?.id}
+              currentUserId={user?.id}
+              onDelete={handleDeleteMessage}
+              onDeleteForMe={handleDeleteMessageForMe}
+              onReact={handleReactToMessage}
+            />
           ))}
 
           {/* Voice recording indicator */}

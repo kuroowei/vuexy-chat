@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, Trash2, Smile } from 'lucide-react';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
+  currentUserId?: string;
   onDelete?: (messageId: string) => void;
   onDeleteForMe?: (messageId: string) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
 const statusIcons = {
@@ -15,7 +18,11 @@ const statusIcons = {
   read: <CheckCheck size={14} className="text-blue-400" />,
 };
 
-export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe }: MessageBubbleProps) {
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+export default function MessageBubble({ message, isOwn, currentUserId, onDelete, onDeleteForMe, onReact }: MessageBubbleProps) {
+  const [showPicker, setShowPicker] = useState(false);
+
   const handleDeleteClick = () => {
     if (isOwn) {
       if (!onDelete) return;
@@ -43,6 +50,72 @@ export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe 
       </button>
     ) : null;
 
+  const handlePickEmoji = (emoji: string) => {
+    onReact?.(message.id, emoji);
+    setShowPicker(false);
+  };
+
+  const ReactButton = () =>
+    onReact ? (
+      <div className="relative">
+        <button
+          onClick={() => setShowPicker((prev) => !prev)}
+          className="text-gray-300 hover:text-purple-500 transition-colors"
+          title="React"
+        >
+          <Smile size={12} />
+        </button>
+        {showPicker && (
+          <div
+            className={
+              'absolute bottom-full mb-1.5 bg-white rounded-full shadow-lg border border-gray-100 px-2 py-1.5 flex gap-1.5 z-20 ' +
+              (isOwn ? 'right-0' : 'left-0')
+            }
+          >
+            {QUICK_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => handlePickEmoji(emoji)}
+                className="text-base leading-none hover:scale-125 transition-transform"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    ) : null;
+
+  const reactionCounts = (message.reactions || []).reduce((acc, r) => {
+    acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  const myReactionEmoji = currentUserId
+    ? (message.reactions || []).find((r) => r.userId === currentUserId)?.emoji
+    : undefined;
+  const hasReactions = Object.keys(reactionCounts).length > 0;
+
+  const ReactionsRow = () =>
+    hasReactions ? (
+      <div className={'flex flex-wrap gap-1 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
+        {Object.entries(reactionCounts).map(([emoji, count]) => (
+          <button
+            key={emoji}
+            onClick={() => onReact?.(message.id, emoji)}
+            className={
+              'text-xs px-1.5 py-0.5 rounded-full border flex items-center gap-1 transition-colors ' +
+              (myReactionEmoji === emoji
+                ? 'bg-purple-50 border-purple-300'
+                : 'bg-white border-gray-200 hover:bg-gray-50')
+            }
+          >
+            <span>{emoji}</span>
+            {count > 1 && <span className="text-gray-500">{count}</span>}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
   // For image messages
   if (message.type === 'image' && message.fileUrl) {
     return (
@@ -60,8 +133,10 @@ export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe 
               }}
             />
           </div>
+          <ReactionsRow />
           <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
             <DeleteButton />
+            <ReactButton />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -80,8 +155,10 @@ export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe 
           <div className={'px-3 py-2.5 rounded-xl shadow-sm border ' + (isOwn ? 'bg-purple-600 border-purple-500' : 'bg-white border-gray-100')}>
             <audio controls src={message.fileUrl} style={{ width: '100%', height: '36px' }} />
           </div>
+          <ReactionsRow />
           <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
             <DeleteButton />
+            <ReactButton />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -110,8 +187,10 @@ export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe 
               </div>
             </a>
           </div>
+          <ReactionsRow />
           <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
             <DeleteButton />
+            <ReactButton />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -135,8 +214,10 @@ export default function MessageBubble({ message, isOwn, onDelete, onDeleteForMe 
         >
           <p>{message.content}</p>
         </div>
+        <ReactionsRow />
         <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
           <DeleteButton />
+          <ReactButton />
           <span className="text-[10px] text-gray-400">
             {format(new Date(message.timestamp), 'h:mm a')}
           </span>
