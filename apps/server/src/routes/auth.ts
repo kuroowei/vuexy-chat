@@ -1,9 +1,11 @@
 ﻿import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { User } from '../models/User';
 import multer from 'multer';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import cloudinary from '../config/cloudinary';
+import { sendPasswordResetEmail } from '../config/email';
 
 const router = Router();
 
@@ -182,7 +184,7 @@ router.post('/update-profile', upload.single('avatar'), async (req: Request, res
     }
 
     try {
-      await user.save();
+      await user.save({ validateModifiedOnly: true });
     } catch (err: any) {
       if (err.code === 11000 && err.keyPattern?.phone) {
         return res.status(400).json({ message: 'This phone number is already in use by another account' });
@@ -227,7 +229,7 @@ router.put('/profile', upload.single('avatar'), async (req: Request, res: Respon
     }
 
     try {
-      await user.save();
+      await user.save({ validateModifiedOnly: true });
     } catch (err: any) {
       if (err.code === 11000 && err.keyPattern?.phone) {
         return res.status(400).json({ message: 'This phone number is already in use by another account' });
@@ -267,6 +269,108 @@ router.get('/me', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/auth/forgot-password � generate a reset token, email the user a
+// reset link. Always responds with the same generic success message whether
+// or not the email exists, so this endpoint can't be used to check which
+// emails are registered.
+router.post('/forgot-password', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (user) {
+      // Generate a random token; store only its hash (never the raw value),
+      // same principle as password hashing � if the DB ever leaks, the raw
+      // tokens can't be reconstructed from it.
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+      user.resetPasswordToken = hashedToken;
+      user.resetPasswordExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+      await user.save({ validateModifiedOnly: true });
+
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+      const resetUrl = `${clientUrl}/#/reset-password/${rawToken}`;
+
+      try {
+        await sendPasswordResetEmail(user.email, resetUrl);
+      } catch (emailError) {
+        console.error('Failed to send password reset email:', emailError);
+        // Don't leak email-sending failures to the client either � same
+        // generic response either way.
+      }
+    }
+
+    res.json({ message: 'If that email is registered, a reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/auth/validate-reset-token/:token � checks whether a reset token
+// is valid and unexpired, without consuming it. Used by the frontend to
+// decide whether to show the reset form or an "expired link" message.
+router.get('/validate-reset-token/:token', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('Validate reset token error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/auth/reset-password � sets a new password if the token is valid
+// and unexpired, then invalidates the token so it can't be reused.
+router.post('/reset-password', async (req: Request, res: Response) => {
+  try {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Token and new password are required' });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { $gt: new Date() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired token' });
+    }
+
+    user.password = newPassword; // the pre('save') hook in User.ts re-hashes this
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpiry = undefined;
+    await user.save({ validateModifiedOnly: true });
+
+    res.json({ message: 'Password reset successful' });
+  } catch (error) {
+    console.error('Reset password error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
