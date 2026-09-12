@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Paperclip, Smile, Send, Mic, Square, X, FileText, Image as ImageIcon } from 'lucide-react';
+import { Paperclip, Smile, Send, Mic, Square, X, FileText } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 
@@ -17,13 +17,13 @@ export default function ChatInput({ onSend, onTyping, onRecordingChange, disable
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [selectedFile, setSelectedFile] = useState<{ file: File; preview?: string; type: 'image' | 'file' } | null>(null);
-  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval>>();
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {

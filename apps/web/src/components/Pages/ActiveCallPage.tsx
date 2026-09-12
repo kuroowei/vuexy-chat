@@ -1,4 +1,4 @@
-import { Phone, Video, Mic, MicOff, Camera, CameraOff, PhoneOff, Volume2, VolumeX } from 'lucide-react';
+import { Mic, MicOff, Camera, CameraOff, PhoneOff, Volume2, VolumeX } from 'lucide-react';
 import { useEffect } from 'react';
 import { useWebRTC } from '@/hooks/useWebRTC';
 
@@ -21,7 +21,6 @@ const demoContacts: Record<string, { name: string; avatar: string }> = {
 
 export default function ActiveCallPage({ contactId, callType, onEndCall }: ActiveCallPageProps) {
   const {
-    isInCall,
     isMuted,
     isVideoOn,
     isSpeakerOn,

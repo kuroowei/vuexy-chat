@@ -1,4 +1,3 @@
-﻿import { Link } from 'react-router-dom';
 import { MessageSquare, Shield, Zap, Globe } from 'lucide-react';
 import { ReactNode } from 'react';
 
@@ -44,7 +43,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
             <p className="text-gray-500">{subtitle}</p>
           </div>
           {children}
-          <p className="mt-8 text-center text-sm text-gray-500">© 2026 Vuexy Chat. All rights reserved.</p>
+          <p className="mt-8 text-center text-sm text-gray-500">� 2026 Vuexy Chat. All rights reserved.</p>
         </div>
       </div>
     </div>

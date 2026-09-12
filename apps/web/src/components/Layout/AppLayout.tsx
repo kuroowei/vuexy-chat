@@ -94,8 +94,6 @@ export default function AppLayout() {
     setMobileView('profile');
   };
 
-  const isMobile = !isDesktop && !isTablet;
-
   // DESKTOP: Show different views based on route
   if (isDesktop || isTablet) {
     if (mobileView === 'contacts') {

@@ -21,7 +21,11 @@ const settingsItems = [
   { icon: <Settings size={18} />, label: 'Settings', path: '/settings' },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export default function Sidebar({ onClose }: SidebarProps) {
   const navigate = useNavigate();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
@@ -47,8 +51,9 @@ export default function Sidebar() {
             to={item.path}
             onMouseEnter={() => setHoveredItem(item.label)}
             onMouseLeave={() => setHoveredItem(null)}
+            onClick={() => onClose?.()}
             className={() =>
-              'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors relative ' +
+              'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors relative' +
               (hoveredItem === item.label ? 'bg-purple-600 text-white' : 'text-gray-600')
             }
           >
@@ -73,6 +78,7 @@ export default function Sidebar() {
             to={item.path}
             onMouseEnter={() => setHoveredItem(item.label)}
             onMouseLeave={() => setHoveredItem(null)}
+            onClick={() => onClose?.()}
             className={() =>
               'flex items-center px-3 py-2.5 rounded-lg mb-1 transition-colors ' +
               (hoveredItem === item.label ? 'bg-purple-600 text-white' : 'text-gray-600')
@@ -89,7 +95,7 @@ export default function Sidebar() {
         
         <button
           onClick={handleLogout}
-          className="w-full flex items-center px-3 py-2.5 rounded-lg mt-3 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors border border-gray-200 hover:border-red-200 cursor-pointer"
+          className="w-full flex items-center px-3 py-2.5 rounded-lg mt-3 text-gray-600hover:bg-red-50 hover:text-red-600 transition-colors border border-gray-200 hover:border-red-200 cursor-pointer"
         >
           <LogOut size={18} className="mr-3" />
           <span className="text-sm font-medium">Logout</span>

@@ -1,7 +1,7 @@
 import { 
   User, Bell, Shield, Moon, Globe, HelpCircle, 
   ChevronRight, LogOut, Smartphone, Volume2, 
-  MessageSquare, Lock, Eye, Trash2
+  Lock
 } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
