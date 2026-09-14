@@ -18,6 +18,7 @@ const MessageSchema = new Schema<IMessage>(
         emoji: { type: String, required: true },
       },
     ],
+    isAiGenerated: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

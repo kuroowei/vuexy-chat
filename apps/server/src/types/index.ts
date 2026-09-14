@@ -33,6 +33,7 @@ export interface IMessage extends Document {
   replyTo?: Types.ObjectId;
   deletedFor: Types.ObjectId[];
   reactions: IMessageReaction[];
+  isAiGenerated: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -45,6 +46,8 @@ export interface IConversation extends Document {
   isGroup: boolean;
   groupName?: string;
   groupAvatar?: string;
+  consecutiveAiReplies: number;
+  aiLoopPaused: boolean;
   createdAt: Date;
 }
 
@@ -89,4 +92,16 @@ export interface IFollow extends Document {
   followerId: Types.ObjectId;
   followingId: Types.ObjectId;
   createdAt: Date;
+}
+
+export interface IAIAgentSettings extends Document {
+  userId: Types.ObjectId;
+  enabled: boolean;
+  persona?: string;
+  excludedContactIds: Types.ObjectId[];
+  dailyReplyLimit: number;
+  repliesSentToday: number;
+  lastReplyCountReset: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }

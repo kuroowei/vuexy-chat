@@ -14,6 +14,8 @@ const ConversationSchema = new Schema<IConversation>(
     isGroup: { type: Boolean, default: false },
     groupName: { type: String },
     groupAvatar: { type: String },
+    consecutiveAiReplies: { type: Number, default: 0 },
+    aiLoopPaused: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

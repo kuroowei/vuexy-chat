@@ -82,6 +82,7 @@ const toMessageResponse = (message: any) => ({
     userId: r.userId.toString(),
     emoji: r.emoji,
   })),
+  isAiGenerated: message.isAiGenerated || false,
   createdAt: message.createdAt,
 });
 

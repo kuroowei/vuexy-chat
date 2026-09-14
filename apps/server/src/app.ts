@@ -15,10 +15,13 @@ import messageRoutes from './routes/messages';
 import friendRoutes from './routes/friends';
 import postRoutes from './routes/posts';
 import followRoutes from './routes/follows';
+import aiAgentRoutes from './routes/aiAgent';
 import { User } from './models/User';
 import { Call } from './models/Call';
 import { Message } from './models/Message';
 import { Conversation } from './models/Conversation';
+import { agenda, defineAgentJobs, startAgenda } from './config/agenda';
+import { scheduleAgentReplyIfNeeded } from './services/aiAgentService';
 
 const app = express();
 const httpServer = createServer(app);
@@ -74,6 +77,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/follows', followRoutes);
+app.use('/api/ai-agent', aiAgentRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });
@@ -99,6 +103,21 @@ io.use(async (socket, next) => {
 
 const userSockets = new Map<string, string>();
 const ringingCallsByCallee = new Map<string, string>();
+
+// Small helpers the AI Agent background worker uses to reach connected
+// sockets without needing to know about Socket.io's internals directly.
+function emitToUser(targetUserId: string, event: string, payload: any) {
+  const socketId = userSockets.get(targetUserId);
+  if (socketId) {
+    io.to(socketId).emit(event, payload);
+  }
+}
+function isUserOnline(targetUserId: string): boolean {
+  return userSockets.has(targetUserId);
+}
+
+defineAgentJobs(emitToUser, isUserOnline);
+startAgenda().catch((err) => console.error('Failed to start Agenda:', err));
 
 async function findOrCreateConversation(userId: string, contactId: string) {
   let conversation = await Conversation.findOne({
@@ -246,6 +265,12 @@ io.on('connection', (socket) => {
 
       conversation.lastMessage = content;
       conversation.lastMessageTime = new Date();
+      // A real human just sent a message in this conversation — clear any
+      // AI-to-AI loop guard so the Agent(s) can engage normally again.
+      if (conversation.consecutiveAiReplies > 0 || conversation.aiLoopPaused) {
+        conversation.consecutiveAiReplies = 0;
+        conversation.aiLoopPaused = false;
+      }
       await conversation.save();
 
       const messagePayload = {
@@ -257,6 +282,7 @@ io.on('connection', (socket) => {
         type: message.type,
         fileUrl: message.fileUrl,
         status: message.status,
+        isAiGenerated: false,
         createdAt: message.createdAt,
       };
 
@@ -264,6 +290,11 @@ io.on('connection', (socket) => {
       const recipientSocketId = userSockets.get(recipientId);
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('new_message', messagePayload);
+      } else {
+        // Recipient is offline — let their AI Agent decide whether to step in.
+        scheduleAgentReplyIfNeeded(agenda, message).catch((err) =>
+          console.error('scheduleAgentReplyIfNeeded error:', err)
+        );
       }
     } catch (err) {
       console.error('send_message error:', err);

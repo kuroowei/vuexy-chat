@@ -1,5 +1,6 @@
 ﻿import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { ProfileDropdown } from '@/components/UI/ProfileDropdown';
 import { 
   MessageSquare, 
@@ -26,14 +27,13 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onClose }: SidebarProps) {
-  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
 
   const handleLogout = () => {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    navigate('/');
+    logout();
   };
+
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full flex-shrink-0">
