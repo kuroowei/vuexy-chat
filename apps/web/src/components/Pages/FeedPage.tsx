@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Image as ImageIcon, X, Heart, MessageCircle, Send, Trash2, MoreVertical } from 'lucide-react';
+import { Image as ImageIcon, Video as VideoIcon, X, Heart, MessageCircle, Send, Trash2, MoreVertical } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
+const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50MB, matches the backend's multer limit
 
 interface AuthorSummary {
   id: string;
@@ -23,6 +24,7 @@ interface PostItem {
   author: AuthorSummary;
   content: string;
   imageUrl?: string;
+  videoUrl?: string;
   likeCount: number;
   likedByMe: boolean;
   comments: CommentItem[];
@@ -44,15 +46,17 @@ export default function FeedPage() {
 
   const [composerText, setComposerText] = useState('');
   const [composerImage, setComposerImage] = useState<{ file: File; preview: string } | null>(null);
+  const [composerVideo, setComposerVideo] = useState<{ file: File; preview: string } | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [postingComment, setPostingComment] = useState<string | null>(null);
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
 
-  const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
+  const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}`});
 
   const fetchPosts = async () => {
     try {
@@ -79,12 +83,38 @@ export default function FeedPage() {
       alert('Image must be less than 10MB');
       return;
     }
+    if (composerVideo) {
+      URL.revokeObjectURL(composerVideo.preview);
+      setComposerVideo(null);
+    }
     setComposerImage({ file, preview: URL.createObjectURL(file) });
     e.target.value = '';
   };
 
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_VIDEO_BYTES) {
+      alert('Video must be less than 50MB');
+      return;
+    }
+    if (composerImage) {
+      URL.revokeObjectURL(composerImage.preview);
+      setComposerImage(null);
+    }
+    setComposerVideo({ file, preview: URL.createObjectURL(file) });
+    e.target.value = '';
+  };
+
+  const clearComposerMedia = () => {
+    if (composerImage) URL.revokeObjectURL(composerImage.preview);
+    if (composerVideo) URL.revokeObjectURL(composerVideo.preview);
+    setComposerImage(null);
+    setComposerVideo(null);
+  };
+
   const handleSubmitPost = async () => {
-    if (!composerText.trim() && !composerImage) return;
+    if (!composerText.trim() && !composerImage && !composerVideo) return;
     setIsPosting(true);
     setError('');
 
@@ -92,6 +122,7 @@ export default function FeedPage() {
       const formData = new FormData();
       if (composerText.trim()) formData.append('content', composerText.trim());
       if (composerImage) formData.append('image', composerImage.file);
+      if (composerVideo) formData.append('video', composerVideo.file);
 
       const res = await fetch(`${API_BASE_URL}/posts`, {
         method: 'POST',
@@ -103,7 +134,7 @@ export default function FeedPage() {
 
       setPosts((prev) => [data.post, ...prev]);
       setComposerText('');
-      setComposerImage(null);
+      clearComposerMedia();
     } catch (err: any) {
       console.error('Error creating post:', err);
       setError(err.message || 'Failed to create post');
@@ -117,7 +148,7 @@ export default function FeedPage() {
     setPosts((prev) =>
       prev.map((p) =>
         p.id === post.id
-          ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1 : 1) }
+          ? { ...p, likedByMe: !p.likedByMe, likeCount: p.likeCount + (p.likedByMe ? -1: 1) }
           : p
       )
     );
@@ -220,7 +251,19 @@ export default function FeedPage() {
               <div className="relative mt-2 rounded-xl overflow-hidden">
                 <img src={composerImage.preview} alt="Preview" className="w-full max-h-80 object-cover" />
                 <button
-                  onClick={() => setComposerImage(null)}
+                  onClick={clearComposerMedia}
+                  className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {composerVideo && (
+              <div className="relative mt-2 rounded-xl overflow-hidden bg-black">
+                <video src={composerVideo.preview} controls className="w-full max-h-80" />
+                <button
+                  onClick={clearComposerMedia}
                   className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white"
                 >
                   <X size={16} />
@@ -229,17 +272,26 @@ export default function FeedPage() {
             )}
 
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
-              >
-                <ImageIcon size={18} /> Photo
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  <ImageIcon size={18} /> Photo
+                </button>
+                <button
+                  onClick={() => videoInputRef.current?.click()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-100"
+                >
+                  <VideoIcon size={18} /> Video
+                </button>
+              </div>
               <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+              <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoSelect} className="hidden" />
 
               <button
                 onClick={handleSubmitPost}
-                disabled={isPosting || (!composerText.trim() && !composerImage)}
+                disabled={isPosting || (!composerText.trim() && !composerImage && !composerVideo)}
                 className="px-5 py-2 bg-purple-600 text-white text-sm font-medium rounded-full hover:bg-purple-700 disabled:opacity-50 transition-colors"
               >
                 {isPosting ? 'Posting...' : 'Post'}
@@ -313,6 +365,10 @@ export default function FeedPage() {
 
                 {post.imageUrl && (
                   <img src={post.imageUrl} alt="Post" className="w-full max-h-[480px] object-cover" />
+                )}
+
+                {post.videoUrl && (
+                  <video src={post.videoUrl} controls className="w-full max-h-[480px] bg-black" />
                 )}
 
                 <div className="flex items-center gap-4 px-4 py-3 border-t border-gray-100 mt-1">

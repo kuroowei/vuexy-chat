@@ -9,25 +9,34 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// Multer + Cloudinary configuration for post images
-const postImageStorage = new CloudinaryStorage({
+// Multer + Cloudinary configuration for post media (images and videos share
+// one multer instance so a single form submission can carry either field;
+// the params callback branches on fieldname to pick the right Cloudinary
+// folder/resource_type for each).
+const postMediaStorage = new CloudinaryStorage({
   cloudinary,
-  params: async () => ({
-    folder: 'chat-app-posts',
-    resource_type: 'image',
-  }),
+  params: async (req: any, file: any) => {
+    if (file.fieldname === 'video') {
+      return { folder: 'chat-app-post-videos', resource_type: 'video' };
+    }
+    return { folder: 'chat-app-posts', resource_type: 'image' };
+  },
 });
 
-const uploadPostImage = multer({
-  storage: postImageStorage,
+const uploadPostMedia = multer({
+  storage: postMediaStorage,
   fileFilter: (req: any, file: any, cb: any) => {
-    if (!file.mimetype.startsWith('image/')) {
-      cb(new Error('Only image files are allowed'));
+    if (file.fieldname === 'video' && !file.mimetype.startsWith('video/')) {
+      cb(new Error('Only video files are allowed for the video field'));
+      return;
+    }
+    if (file.fieldname === 'image' && !file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image files are allowed for the image field'));
       return;
     }
     cb(null, true);
   },
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB — comfortably covers a few minutes of video
 });
 
 const toAuthorSummary = (user: any) => ({
@@ -41,6 +50,7 @@ const toPostResponse = (post: any, currentUserId: string) => ({
   author: toAuthorSummary(post.authorId),
   content: post.content,
   imageUrl: post.imageUrl,
+  videoUrl: post.videoUrl,
   likeCount: post.likes.length,
   likedByMe: post.likes.some((id: any) => id.toString() === currentUserId),
   comments: post.comments.map((c: any) => ({
@@ -69,31 +79,43 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/posts — create a post (text and/or image)
-router.post('/', uploadPostImage.single('image'), async (req: AuthRequest, res: Response) => {
-  try {
-    const userId = req.user!.userId;
-    const { content } = req.body;
-    const imageUrl = req.file ? (req.file as any).path : undefined;
+// POST /api/posts — create a post (text and/or image and/or video). A post
+// can carry an image OR a video, not both, matching how most social feeds
+// behave — the frontend only ever sends one or the other.
+router.post(
+  '/',
+  uploadPostMedia.fields([
+    { name: 'image', maxCount: 1 },
+    { name: 'video', maxCount: 1 },
+  ]),
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user!.userId;
+      const { content } = req.body;
+      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const imageUrl = files?.image?.[0] ? (files.image[0] as any).path : undefined;
+      const videoUrl = files?.video?.[0] ? (files.video[0] as any).path : undefined;
 
-    if ((!content || !content.trim()) && !imageUrl) {
-      return res.status(400).json({ message: 'Post must have text or an image' });
+      if ((!content || !content.trim()) && !imageUrl && !videoUrl) {
+        return res.status(400).json({ message: 'Post must have text, an image, or a video' });
+      }
+
+      let post: any = await Post.create({
+        authorId: userId,
+        content: content ? content.trim() : '',
+        imageUrl,
+        videoUrl,
+      });
+
+      post = await post.populate('authorId', 'name avatar');
+
+      res.status(201).json({ post: toPostResponse(post, userId) });
+    } catch (error) {
+      console.error('Error creating post:', error);
+      res.status(500).json({ message: 'Server error' });
     }
-
-    let post: any = await Post.create({
-      authorId: userId,
-      content: content ? content.trim() : '',
-      imageUrl,
-    });
-
-    post = await post.populate('authorId', 'name avatar');
-
-    res.status(201).json({ post: toPostResponse(post, userId) });
-  } catch (error) {
-    console.error('Error creating post:', error);
-    res.status(500).json({ message: 'Server error' });
   }
-});
+);
 
 // POST /api/posts/:id/like — toggle like
 router.post('/:id/like', async (req: AuthRequest, res: Response) => {

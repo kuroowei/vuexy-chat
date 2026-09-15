@@ -1,4 +1,4 @@
-﻿import { Document, Types } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -82,6 +82,7 @@ export interface IPost extends Document {
   authorId: Types.ObjectId;
   content: string;
   imageUrl?: string;
+  videoUrl?: string;
   likes: Types.ObjectId[];
   comments: IPostComment[];
   createdAt: Date;

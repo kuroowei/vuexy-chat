@@ -14,6 +14,7 @@ const PostSchema = new Schema<IPost>(
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     content: { type: String, trim: true, maxlength: 5000, default: '' },
     imageUrl: { type: String },
+    videoUrl: { type: String },
     likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
     comments: [PostCommentSchema],
   },
