@@ -1,4 +1,4 @@
-﻿export interface Reaction {
+export interface Reaction {
   userId: string;
   emoji: string;
 }
@@ -16,6 +16,7 @@ export interface Message {
   fileName?: string;
   fileSize?: number;
   reactions?: Reaction[];
+  isAiGenerated?: boolean;
 }
 
 export interface Contact {

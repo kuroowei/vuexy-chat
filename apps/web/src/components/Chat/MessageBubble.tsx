@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Check, CheckCheck, Trash2, Smile } from 'lucide-react';
+import { Check, CheckCheck, Trash2, Smile, Bot } from 'lucide-react';
 import type { Message } from '@/types';
 
 interface MessageBubbleProps {
@@ -86,6 +86,14 @@ export default function MessageBubble({ message, isOwn, currentUserId, onDelete,
       </div>
     ) : null;
 
+  const AiBadge = () =>
+    message.isAiGenerated ? (
+      <span className="flex items-center gap-0.5 text-[10px] text-purple-500 font-medium">
+        <Bot size={10} />
+        AI
+      </span>
+    ) : null;
+
   const reactionCounts = (message.reactions || []).reduce((acc, r) => {
     acc[r.emoji] = (acc[r.emoji] || 0) + 1;
     return acc;
@@ -137,6 +145,7 @@ export default function MessageBubble({ message, isOwn, currentUserId, onDelete,
           <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
             <DeleteButton />
             <ReactButton />
+            <AiBadge />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -159,6 +168,7 @@ export default function MessageBubble({ message, isOwn, currentUserId, onDelete,
           <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
             <DeleteButton />
             <ReactButton />
+            <AiBadge />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -191,6 +201,7 @@ export default function MessageBubble({ message, isOwn, currentUserId, onDelete,
           <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
             <DeleteButton />
             <ReactButton />
+            <AiBadge />
             <span className="text-[10px] text-gray-400">
               {format(new Date(message.timestamp), 'h:mm a')}
             </span>
@@ -218,6 +229,7 @@ export default function MessageBubble({ message, isOwn, currentUserId, onDelete,
         <div className={'flex items-center gap-1.5 mt-1 ' + (isOwn ? 'justify-end' : 'justify-start')}>
           <DeleteButton />
           <ReactButton />
+          <AiBadge />
           <span className="text-[10px] text-gray-400">
             {format(new Date(message.timestamp), 'h:mm a')}
           </span>

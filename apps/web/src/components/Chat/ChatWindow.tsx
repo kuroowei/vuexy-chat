@@ -117,6 +117,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
             timestamp: m.createdAt,
             fileUrl: m.fileUrl,
             reactions: m.reactions || [],
+            isAiGenerated: m.isAiGenerated || false,
           }));
           setMessages(mapped);
         }
@@ -151,6 +152,7 @@ export default function ChatWindow({ contactId, onBack, className }: ChatWindowP
         timestamp: payload.createdAt,
         fileUrl: payload.fileUrl,
         reactions: [],
+        isAiGenerated: payload.isAiGenerated || false,
       };
 
       setMessages((prev) => {

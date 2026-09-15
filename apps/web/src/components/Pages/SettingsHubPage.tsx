@@ -1,10 +1,11 @@
 import {
   User, Bell, Shield, Moon, Globe, HelpCircle,
   ChevronRight, LogOut, Smartphone, Volume2,
-  Lock, Palette, Users, X, ShieldOff
+  Lock, Palette, Users, X, ShieldOff, Bot
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import AIAgentSettingsModal from './AIAgentSettingsModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 const BACKEND_URL = API_BASE_URL.replace('/api', '');
@@ -55,6 +56,7 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
   const [blockedContacts, setBlockedContacts] = useState<BlockedContact[]>([]);
   const [loadingBlocked, setLoadingBlocked] = useState(false);
   const [blockedError, setBlockedError] = useState('');
+  const [showAiAgent, setShowAiAgent] = useState(false);
 
   const toggleValue = (id: string) => {
     setToggles(prev => ({ ...prev, [id]: !prev[id] }));
@@ -108,6 +110,14 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
       description: 'Name, photo, phone number',
       type: 'profile',
       onClick: onNavigateToProfile
+    },
+    {
+      id: 'aiAgent',
+      icon: Bot,
+      label: 'Offline AI Agent',
+      description: 'Let AI reply for you while you\'re away',
+      type: 'link',
+      onClick: () => setShowAiAgent(true),
     },
     { id: 'privacy', icon: Lock, label: 'Privacy', description: 'Last seen, profile photo', type: 'link' },
     { id: 'security', icon: Shield, label: 'Security', description: 'Two-step verification', type: 'link' },
@@ -173,6 +183,9 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
         <SettingSection title="Other" items={otherSettings} toggles={toggles} onToggle={toggleValue} />
       </div>
 
+      {/* Offline AI Agent modal */}
+      {showAiAgent && <AIAgentSettingsModal onClose={() => setShowAiAgent(false)} />}
+
       {/* Blocked Contacts modal */}
       {showBlocked && (
         <div
@@ -225,7 +238,7 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
                   />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-gray-900 truncate">{contact.name}</h3>
-                    <p className="text-xs text-gray-500 truncate">{contact.phone || 'No phone number'}</p>
+                    <p className="text-xs text-gray-500 truncate">{contact.phone || 'Nophone number'}</p>
                   </div>
                   <button
                     onClick={() => handleUnblock(contact)}
