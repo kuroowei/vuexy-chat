@@ -1,6 +1,7 @@
 import { Search, Phone, Video, MoreVertical, MessageCircle, X, UserPlus, Check, UserX, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import ProfileVideoGrid from './ProfileVideoGrid';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 const BACKEND_URL = API_BASE_URL.replace('/api', '');
@@ -672,6 +673,10 @@ export default function ContactsPage({ onStartCall, onStartChat }: ContactsPageP
                 >
                   <MessageCircle size={18} /> Message
                 </button>
+              </div>
+
+              <div className="w-full -mx-6">
+                <ProfileVideoGrid userId={profileContact.id} />
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import ProfileVideoGrid from './ProfileVideoGrid';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 const BACKEND_URL = API_BASE_URL.replace('/api', '');
@@ -102,6 +103,8 @@ export default function ProfileViewPage({ onBack }: ProfileViewPageProps) {
             <InfoCard icon={Phone} label="Phone" value={user.phone || 'Not set'} />
           </div>
         </div>
+
+        <ProfileVideoGrid userId={user.id} />
       </div>
     </div>
   );

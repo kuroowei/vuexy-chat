@@ -62,6 +62,23 @@ const toPostResponse = (post: any, currentUserId: string) => ({
   createdAt: post.createdAt,
 });
 
+// GET /api/posts/user/:userId — a specific user's own posts, newest first.
+// Used for their profile page's video/photo grid.
+router.get('/user/:userId', async (req: AuthRequest, res: Response) => {
+  try {
+    const currentUserId = req.user!.userId;
+    const posts = await Post.find({ authorId: req.params.userId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .populate('authorId', 'name avatar')
+      .populate('comments.authorId', 'name avatar');
+
+    res.json({ posts: posts.map((p) => toPostResponse(p, currentUserId)) });
+  } catch (error) {
+    console.error('Error fetching user posts:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 // GET /api/posts — public feed, newest first
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
