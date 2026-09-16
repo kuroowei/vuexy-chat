@@ -92,7 +92,7 @@ router.post(
     try {
       const userId = req.user!.userId;
       const { content } = req.body;
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+      const files = req.files as { [fieldname: string]: { path: string }[] } | undefined;
       const imageUrl = files?.image?.[0] ? (files.image[0] as any).path : undefined;
       const videoUrl = files?.video?.[0] ? (files.video[0] as any).path : undefined;
 
