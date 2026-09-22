@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useState, useRef } from 'react';
 import { Play, X } from 'lucide-react';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
@@ -19,8 +19,19 @@ interface ProfileVideoGridProps {
 // pulling in the actual video just to show a thumbnail.
 const getVideoThumbnail = (videoUrl: string): string => videoUrl.replace(/\.[^./]+$/, '.jpg');
 
+const recordView = (postId: string, viewedIds: Set<string>) => {
+  if (viewedIds.has(postId)) return;
+  viewedIds.add(postId);
+  const token = localStorage.getItem('token');
+  fetch(`${API_BASE_URL}/posts/${postId}/view`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch((err) => console.error('Failed to record view:', err));
+};
+
 export default function ProfileVideoGrid({ userId }: ProfileVideoGridProps) {
   const [videos, setVideos] = useState<VideoPost[]>([]);
+    const viewedVideoIds = useRef<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<VideoPost | null>(null);
 
@@ -99,6 +110,7 @@ export default function ProfileVideoGrid({ userId }: ProfileVideoGridProps) {
             autoPlay
             className="max-w-full max-h-[85vh] rounded-lg"
             onClick={(e) => e.stopPropagation()}
+            onPlay={() => recordView(selectedVideo.id, viewedVideoIds.current)}
           />
         </div>
       )}

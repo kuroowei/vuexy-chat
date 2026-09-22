@@ -1,6 +1,7 @@
 ﻿import { Agenda } from 'agenda';
 import { MongoBackend } from '@agendajs/mongo-backend';
 import { processAgentReply } from '../services/aiAgentService';
+import { calculateVideoEarnings } from '../services/monetizationService';
 
 const backend = new MongoBackend({
   address: process.env.MONGODB_URI || '',
@@ -31,7 +32,25 @@ export function defineAgentJobs(
   });
 }
 
+/**
+ * The video-monetization earnings calculation, run on a recurring schedule
+ * (see startAgenda below) rather than triggered per-event — it's cheap to
+ * scan all video posts periodically rather than reacting to every view.
+ */
+export function defineMonetizationJob() {
+  agenda.define('calculate-video-earnings', async () => {
+    try {
+      const result = await calculateVideoEarnings();
+      console.log(`Video earnings calculated for ${result.processed} post(s)`);
+    } catch (err) {
+      console.error('Video earnings calculation job failed:', err);
+      throw err;
+    }
+  });
+}
+
 export async function startAgenda() {
   await agenda.start();
   console.log('Agenda (AI Agent job queue) started');
+  await agenda.every('24 hours', 'calculate-video-earnings');
 }

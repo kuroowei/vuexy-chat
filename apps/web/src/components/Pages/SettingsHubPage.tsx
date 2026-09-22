@@ -1,11 +1,12 @@
 import {
-  User, Bell, Shield, Moon, Globe, HelpCircle,
+   User, Bell, Shield, Moon, Globe, HelpCircle,
   ChevronRight, LogOut, Smartphone, Volume2,
-  Lock, Palette, Users, X, ShieldOff, Bot
+  Lock, Palette, Users, X, ShieldOff, Bot, Wallet
 } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import AIAgentSettingsModal from './AIAgentSettingsModal';
+import MonetizationDashboardModal from './MonetizationDashboardModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 const BACKEND_URL = API_BASE_URL.replace('/api', '');
@@ -57,6 +58,7 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
   const [loadingBlocked, setLoadingBlocked] = useState(false);
   const [blockedError, setBlockedError] = useState('');
   const [showAiAgent, setShowAiAgent] = useState(false);
+    const [showEarnings, setShowEarnings] = useState(false);
 
   const toggleValue = (id: string) => {
     setToggles(prev => ({ ...prev, [id]: !prev[id] }));
@@ -119,6 +121,17 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
       type: 'link',
       onClick: () => setShowAiAgent(true),
     },
+
+    {
+      id: 'earnings',
+      icon: Wallet,
+      label: 'Earnings',
+      description: 'View your video monetization earnings',
+      type: 'link',
+      onClick: () => setShowEarnings(true),
+    },
+
+    
     { id: 'privacy', icon: Lock, label: 'Privacy', description: 'Last seen, profile photo', type: 'link' },
     { id: 'security', icon: Shield, label: 'Security', description: 'Two-step verification', type: 'link' },
     {
@@ -185,6 +198,9 @@ export default function SettingsHubPage({ onNavigateToProfile }: SettingsHubPage
 
       {/* Offline AI Agent modal */}
       {showAiAgent && <AIAgentSettingsModal onClose={() => setShowAiAgent(false)} />}
+
+      {/* Earnings modal */}
+      {showEarnings && <MonetizationDashboardModal onClose={() => setShowEarnings(false)} />}
 
       {/* Blocked Contacts modal */}
       {showBlocked && (

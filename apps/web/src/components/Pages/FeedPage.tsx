@@ -50,6 +50,7 @@ export default function FeedPage() {
   const [isPosting, setIsPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const viewedVideoIds = useRef<Set<string>>(new Set());
 
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
@@ -57,6 +58,14 @@ export default function FeedPage() {
   const [openMenuPostId, setOpenMenuPostId] = useState<string | null>(null);
 
   const authHeaders = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}`});
+  
+  const recordView = (postId: string) => {
+    if (viewedVideoIds.current.has(postId)) return;
+    viewedVideoIds.current.add(postId);
+    fetch(`${API_BASE_URL}/posts/${postId}/view`, { method: 'POST', headers: authHeaders() }).catch((err) =>
+      console.error('Failed to record view:', err)
+    );
+  };
 
   const fetchPosts = async () => {
     try {
@@ -367,8 +376,13 @@ export default function FeedPage() {
                   <img src={post.imageUrl} alt="Post" className="w-full max-h-[480px] object-cover" />
                 )}
 
-                {post.videoUrl && (
-                  <video src={post.videoUrl} controls className="w-full max-h-[480px] bg-black" />
+                  {post.videoUrl && (
+                  <video
+                    src={post.videoUrl}
+                    controls
+                    className="w-full max-h-[480px] bg-black"
+                    onPlay={() => recordView(post.id)}
+                  />
                 )}
 
                 <div className="flex items-center gap-4 px-4 py-3 border-t border-gray-100 mt-1">

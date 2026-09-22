@@ -16,11 +16,12 @@ import friendRoutes from './routes/friends';
 import postRoutes from './routes/posts';
 import followRoutes from './routes/follows';
 import aiAgentRoutes from './routes/aiAgent';
+import monetizationRoutes from './routes/monetization';
 import { User } from './models/User';
 import { Call } from './models/Call';
 import { Message } from './models/Message';
 import { Conversation } from './models/Conversation';
-import { agenda, defineAgentJobs, startAgenda } from './config/agenda';
+import { agenda, defineAgentJobs, defineMonetizationJob, startAgenda } from './config/agenda';
 import { scheduleAgentReplyIfNeeded } from './services/aiAgentService';
 
 const app = express();
@@ -78,6 +79,7 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/follows', followRoutes);
 app.use('/api/ai-agent', aiAgentRoutes);
+app.use('/api/monetization', monetizationRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Vuexy Chat API', status: 'running' });
@@ -117,6 +119,7 @@ function isUserOnline(targetUserId: string): boolean {
 }
 
 defineAgentJobs(emitToUser, isUserOnline);
+defineMonetizationJob();
 startAgenda().catch((err) => console.error('Failed to start Agenda:', err));
 
 async function findOrCreateConversation(userId: string, contactId: string) {

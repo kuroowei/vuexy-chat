@@ -83,6 +83,9 @@ export interface IPost extends Document {
   content: string;
   imageUrl?: string;
   videoUrl?: string;
+  views: number;
+  lastEarningsCalculatedViews: number;
+  lastEarningsCalculatedAt: Date;
   likes: Types.ObjectId[];
   comments: IPostComment[];
   createdAt: Date;
@@ -105,4 +108,27 @@ export interface IAIAgentSettings extends Document {
   lastReplyCountReset: Date;
   createdAt: Date;
   updatedAt: Date;
+}
+export interface IPostView extends Document {
+  postId: Types.ObjectId;
+  viewerId: Types.ObjectId;
+  createdAt: Date;
+}
+
+export interface IWallet extends Document {
+  userId: Types.ObjectId;
+  balance: number;
+  totalEarned: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IVideoEarning extends Document {
+  postId: Types.ObjectId;
+  userId: Types.ObjectId;
+  periodStart: Date;
+  periodEnd: Date;
+  viewsCounted: number;
+  amount: number;
+  createdAt: Date;
 }

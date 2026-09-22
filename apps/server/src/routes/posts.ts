@@ -4,6 +4,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { Post } from '../models/Post';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import cloudinary from '../config/cloudinary';
+import { PostView } from '../models/PostView';
 
 const router = Router();
 
@@ -200,6 +201,36 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     res.json({ message: 'Post deleted' });
   } catch (error) {
     console.error('Error deleting post:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/posts/:id/view — record that the current user watched this
+// post's video. Deduped by a unique index on {postId, viewerId}, so replays
+// or refreshes never inflate the count; the author viewing their own post
+// doesn't count either.
+router.post('/:id/view', async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.userId;
+    const post = await Post.findById(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (post.authorId.toString() === userId) {
+      return res.json({ counted: false });
+    }
+
+    try {
+      await PostView.create({ postId: post._id, viewerId: userId });
+    } catch (err: any) {
+      if (err.code === 11000) {
+        return res.json({ counted: false }); // already viewed before
+      }
+      throw err;
+    }
+
+    await Post.findByIdAndUpdate(post._id, { $inc: { views: 1 } });
+    res.json({ counted: true });
+  } catch (error) {
+    console.error('Error recording view:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
